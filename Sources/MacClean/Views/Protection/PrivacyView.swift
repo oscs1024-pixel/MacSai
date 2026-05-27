@@ -19,7 +19,6 @@ struct PrivacyView: View {
             subtitle: "Clean browser data, history, cookies, and system traces",
             theme: .protection,
             emptyMessage: "No privacy traces found",
-            needsTCCPaths: true,
             results: results,
             selectedItems: $selectedItems,
             isScanning: isScanning,

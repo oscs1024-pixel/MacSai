@@ -18,7 +18,6 @@ struct TrashBinsView: View {
             subtitle: "Empty all trash locations including external drives",
             theme: .cleanup,
             emptyMessage: "Trash is empty",
-            needsTCCPaths: true,
             results: results,
             selectedItems: $selectedItems,
             isScanning: isScanning,

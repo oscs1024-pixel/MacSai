@@ -6,7 +6,6 @@ struct ModuleContainerView: View {
     let subtitle: String
     let theme: ModuleTheme
     let emptyMessage: String
-    let needsTCCPaths: Bool
     let results: [ScanResult]
     @Binding var selectedItems: Set<URL>
     let isScanning: Bool
@@ -24,7 +23,6 @@ struct ModuleContainerView: View {
         subtitle: String,
         theme: ModuleTheme,
         emptyMessage: String = "No items found",
-        needsTCCPaths: Bool = false,
         results: [ScanResult],
         selectedItems: Binding<Set<URL>>,
         isScanning: Bool,
@@ -41,7 +39,6 @@ struct ModuleContainerView: View {
         self.subtitle = subtitle
         self.theme = theme
         self.emptyMessage = emptyMessage
-        self.needsTCCPaths = needsTCCPaths
         self.results = results
         self._selectedItems = selectedItems
         self.isScanning = isScanning
@@ -78,8 +75,6 @@ struct ModuleContainerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    // MARK: - Idle
-
     private var idleView: some View {
         VStack(spacing: 28) {
             Spacer()
@@ -98,8 +93,6 @@ struct ModuleContainerView: View {
         }
     }
 
-    // MARK: - Scanning
-
     private var scanningView: some View {
         VStack(spacing: 0) {
             Spacer()
@@ -108,59 +101,25 @@ struct ModuleContainerView: View {
         }
     }
 
-    // MARK: - Empty Results
-
     private var emptyResultsView: some View {
         VStack(spacing: 20) {
             Spacer()
-
-            if needsTCCPaths && !PermissionManager.shared.canReadTCCProtectedPaths() {
-                Image(systemName: "lock.shield")
-                    .font(.system(size: 48))
-                    .foregroundStyle(.white.opacity(0.9))
-                Text("Couldn't access protected files")
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-                Text("This module scans areas that require Full Disk Access.\nGrant access in System Settings, then restart the app and scan again.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 400)
-
-                HStack(spacing: 14) {
-                    Button("Open Settings") {
-                        PermissionManager.shared.openFullDiskAccessSettings()
-                    }
-                    .buttonStyle(SuperEllipseButtonStyle(
-                        gradient: theme.buttonGradient,
-                        size: CGSize(width: 140, height: 40)
-                    ))
-
-                    Button("Scan Again") { onScan() }
-                        .buttonStyle(.bordered)
-                        .tint(.white)
-                }
-            } else {
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.system(size: 52))
-                    .foregroundStyle(.white.opacity(0.9))
-                Text(emptyMessage)
-                    .font(.system(size: 20, weight: .semibold))
-                    .foregroundStyle(.white)
-                Text("Scan complete — nothing to clean up")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.white.opacity(0.55))
-                Button("Done") { onReset() }
-                    .buttonStyle(.bordered)
-                    .tint(.white)
-                    .controlSize(.large)
-            }
-
+            Image(systemName: "checkmark.seal.fill")
+                .font(.system(size: 52))
+                .foregroundStyle(.white.opacity(0.9))
+            Text(emptyMessage)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(.white)
+            Text("Scan complete — nothing to clean up")
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.55))
+            Button("Done") { onReset() }
+                .buttonStyle(.bordered)
+                .tint(.white)
+                .controlSize(.large)
             Spacer()
         }
     }
-
-    // MARK: - Results
 
     private var resultsView: some View {
         VStack(spacing: 0) {
@@ -184,8 +143,6 @@ struct ModuleContainerView: View {
                 .padding(.bottom, 20)
         }
     }
-
-    // MARK: - Done
 
     private var doneView: some View {
         VStack(spacing: 20) {

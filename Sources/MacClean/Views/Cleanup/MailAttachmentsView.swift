@@ -20,7 +20,6 @@ struct MailAttachmentsView: View {
             subtitle: "Find cached email attachments from Mail, Outlook, and Spark",
             theme: .cleanup,
             emptyMessage: "No attachments found",
-            needsTCCPaths: true,
             results: results,
             selectedItems: $selectedItems,
             isScanning: isScanning,
