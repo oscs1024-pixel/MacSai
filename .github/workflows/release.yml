@@ -119,30 +119,46 @@ jobs:
         run: |
           REPO_OWNER="${{ github.repository_owner }}"
           TAP="${REPO_OWNER}/homebrew-macclean"
+          CASK_PATH="Casks/mac-clean.rb"
+          VERSION="${{ steps.version.outputs.version }}"
 
-          # Check if tap exists
           if ! gh repo view "${TAP}" &>/dev/null; then
             echo "Tap ${TAP} does not exist yet. Skipping sync."
             echo "Create it once with: bash scripts/setup-homebrew-tap.sh"
             exit 0
           fi
 
-          # Clone tap, update cask, push
-          TMP=$(mktemp -d)
-          cd "$TMP"
-          git clone "https://x-access-token:${GH_TOKEN}@github.com/${TAP}.git" tap
-          mkdir -p tap/Casks
-          cp "${GITHUB_WORKSPACE}/Casks/mac-clean.rb" tap/Casks/mac-clean.rb
-          cd tap
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add Casks/mac-clean.rb
-            git commit -m "Update Mac Clean cask to v${{ steps.version.outputs.version }}"
-            git push origin main
-            echo "Cask synced to ${TAP}"
-          else
-            echo "Cask already up to date in ${TAP}"
+          # Fetch existing file SHA (needed for update API call)
+          EXISTING_SHA=$(gh api "repos/${TAP}/contents/${CASK_PATH}" --jq '.sha' 2>/dev/null || echo "")
+
+          # New content base64-encoded
+          NEW_CONTENT=$(base64 -i Casks/mac-clean.rb)
+
+          # Compare with existing content
+          EXISTING_CONTENT=""
+          if [ -n "$EXISTING_SHA" ]; then
+            EXISTING_CONTENT=$(gh api "repos/${TAP}/contents/${CASK_PATH}" --jq '.content' | tr -d '\n')
           fi
+
+          if [ "$NEW_CONTENT" = "$EXISTING_CONTENT" ]; then
+            echo "Cask already up to date in ${TAP}"
+            exit 0
+          fi
+
+          # Push via Contents API (works cross-repo with PAT)
+          ARGS=(
+            "repos/${TAP}/contents/${CASK_PATH}"
+            -X PUT
+            -f "message=Update Mac Clean cask to v${VERSION}"
+            -f "content=${NEW_CONTENT}"
+            -f "committer[name]=github-actions[bot]"
+            -f "committer[email]=github-actions[bot]@users.noreply.github.com"
+          )
+          if [ -n "$EXISTING_SHA" ]; then
+            ARGS+=(-f "sha=${EXISTING_SHA}")
+          fi
+
+          gh api "${ARGS[@]}" >/dev/null
+          echo "Cask synced to ${TAP}"
         env:
           GH_TOKEN: ${{ secrets.TAP_PUSH_TOKEN || secrets.GITHUB_TOKEN }}
