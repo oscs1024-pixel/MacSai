@@ -112,25 +112,30 @@ Mac Clean is designed to **never cause data loss**:
 
 ## Installation
 
-### Via Homebrew (recommended)
+### Homebrew (recommended — one command, no warnings)
 
 ```bash
 brew tap iliyami/macclean
 brew install --cask mac-clean
 ```
 
-After installation, launch from Spotlight or Applications. Because Mac Clean is not notarized (see [Signing & Notarization](#signing--notarization)), the first launch needs one of these:
+The Cask automatically handles Gatekeeper for you. Launch from Spotlight or Applications — no warnings, no right-clicks, no commands.
+
+### One-line installer
 
 ```bash
-# Option 1: remove the quarantine flag
-sudo xattr -dr com.apple.quarantine "/Applications/Mac Clean.app"
+curl -fsSL https://raw.githubusercontent.com/iliyami/MacClean/main/scripts/install.sh | bash
 ```
 
-Or right-click the app in Finder and choose **Open** the first time.
+This downloads the latest DMG, installs the app to `/Applications`, and removes the quarantine flag automatically.
 
-### Via DMG download
+### DMG download
 
-Download the latest DMG from [Releases](https://github.com/iliyami/MacClean/releases/latest), open it, and drag Mac Clean to your Applications folder.
+Download the latest DMG from [Releases](https://github.com/iliyami/MacClean/releases/latest) and drag Mac Clean to your Applications folder. On first launch, either right-click the app and choose **Open**, or run once:
+
+```bash
+sudo xattr -dr com.apple.quarantine "/Applications/Mac Clean.app"
+```
 
 ### Build from source
 
@@ -150,15 +155,18 @@ Some modules (Mail Attachments, Privacy, Malware) need Full Disk Access to scan 
 2. Click **+** and add **Mac Clean.app** from Applications
 3. Restart Mac Clean
 
-## Signing & Notarization
+## Why Mac Clean isn't notarized by Apple
 
-**Current status:** Mac Clean is **ad-hoc signed but not notarized**. This is normal for open-source Mac projects without a paid Apple Developer ID ($99/year). It means:
+Apple charges **$99/year** for a Developer ID — the only way to bypass Gatekeeper warnings on macOS. Mac Clean is free, open-source, and built by volunteers. Paying Apple's annual gatekeeping tax just so users can open the app without a warning isn't worth it when:
 
-- Gatekeeper will warn on first launch (remove with `xattr` or right-click → Open)
-- The app cannot be submitted to the official Homebrew Cask repository (only personal taps work)
-- Functionally everything works the same as a notarized app
+1. The source is right here for you to read
+2. Homebrew install handles it automatically — `brew install --cask mac-clean` and you're done
+3. The one-line installer handles it automatically
+4. The whole "Gatekeeper warning" thing is just an extra `xattr` command for direct DMG installs
 
-If you want to build a notarized version:
+If our community ever wants to fund a Developer ID (or some other open-source organization wants to sponsor one), we'll happily ship notarized builds. Until then, **no paywall just to launch a free app**.
+
+For maintainers with a Developer ID who want to ship notarized builds:
 
 ```bash
 export APPLE_DEVELOPER_ID='Developer ID Application: Your Name (TEAMID)'
@@ -166,8 +174,6 @@ xcrun notarytool store-credentials 'MacClean' --apple-id YOU@example.com --team-
 export NOTARY_PROFILE='MacClean'
 bash scripts/build-dmg.sh --notarize
 ```
-
-The build script handles signing with hardened runtime, submitting to Apple's notary service, and stapling the ticket to the DMG.
 
 ## Requirements
 

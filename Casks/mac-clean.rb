@@ -17,6 +17,14 @@ cask "mac-clean" do
 
   app "Mac Clean.app"
 
+  postflight do
+    # Mac Clean is open source and not notarized — we don't pay Apple's $99/year
+    # gatekeeping tax. Remove the quarantine flag so the app launches cleanly.
+    system_command "/usr/bin/xattr",
+                   args: ["-dr", "com.apple.quarantine", "#{appdir}/Mac Clean.app"],
+                   sudo: false
+  end
+
   zap trash: [
     "~/Library/Application Support/Mac Clean",
     "~/Library/Caches/com.macclean.app",
@@ -26,12 +34,13 @@ cask "mac-clean" do
   ]
 
   caveats <<~EOS
-    Mac Clean is not notarized by Apple (it's an open-source project without a paid
-    Developer ID). To launch it the first time:
+    Mac Clean is open source and intentionally not notarized — we don't pay
+    Apple's $99/year gatekeeping tax to ship free software.
+
+    This cask automatically removes the quarantine flag during install, so the
+    app should launch normally. If you ever see a Gatekeeper warning, run:
 
       sudo xattr -dr com.apple.quarantine "/Applications/Mac Clean.app"
-
-    Or right-click the app in Finder and choose "Open" to bypass Gatekeeper.
 
     Some features (Mail, Safari, Privacy scans) require Full Disk Access:
       System Settings → Privacy & Security → Full Disk Access
