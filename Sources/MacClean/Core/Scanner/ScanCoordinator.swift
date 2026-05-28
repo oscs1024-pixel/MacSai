@@ -5,7 +5,12 @@ public protocol ScanModule: Sendable {
     var id: String { get }
     var name: String { get }
     var category: ModuleCategory { get }
+    var includedInSmartScan: Bool { get }
     func scan() async -> [ScanResult]
+}
+
+public extension ScanModule {
+    var includedInSmartScan: Bool { true }
 }
 
 public enum ModuleCategory: String, CaseIterable, Sendable {
@@ -43,6 +48,10 @@ public final class ScanCoordinator: @unchecked Sendable {
     }
 
     public func scanAll() {
+        scanModules(modules.filter { $0.includedInSmartScan })
+    }
+
+    public func scanAllIncludingHeavy() {
         scanModules(modules)
     }
 

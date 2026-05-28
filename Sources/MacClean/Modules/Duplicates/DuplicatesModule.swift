@@ -6,6 +6,9 @@ public struct DuplicatesModule: ScanModule {
     public let id = "duplicates"
     public let name = "Duplicates"
     public let category = ModuleCategory.files
+    public let includedInSmartScan = false
+
+    public static let maxHashableFileSize: UInt64 = 500 * 1024 * 1024 // 500 MB
 
     private let scanner = TargetedScanner()
 
@@ -39,33 +42,54 @@ public struct DuplicatesModule: ScanModule {
         return [ScanResult(category: .duplicates, items: duplicateItems, autoSelect: false)]
     }
 
-    // Progressive duplicate detection pipeline
+    // Progressive duplicate detection pipeline (parallel)
     public func findDuplicates(_ files: [FileItem]) async -> [[FileItem]] {
         // Stage 1: Group by size (eliminates ~80-90%)
-        let sizeGroups = Dictionary(grouping: files) { $0.size }
+        // Skip files > 500MB to avoid hour-long hashes on huge files
+        let hashable = files.filter { $0.size <= Self.maxHashableFileSize }
+        let sizeGroups = Dictionary(grouping: hashable) { $0.size }
         let candidates = sizeGroups.values.filter { $0.count > 1 }
 
-        // Stage 2: Partial hash (first 4KB)
-        var partialHashGroups: [String: [FileItem]] = [:]
-        for group in candidates {
-            for item in group {
-                if let hash = partialHash(item.url) {
-                    let key = "\(item.size)-\(hash)"
-                    partialHashGroups[key, default: []].append(item)
+        // Stage 2: Partial hash (first 4KB) — parallel
+        let partialResults = await withTaskGroup(of: (String, FileItem)?.self) { group -> [(String, FileItem)] in
+            for sizeGroup in candidates {
+                for item in sizeGroup {
+                    group.addTask {
+                        guard let hash = Self.partialHash(item.url) else { return nil }
+                        return ("\(item.size)-\(hash)", item)
+                    }
                 }
             }
+            var out: [(String, FileItem)] = []
+            for await result in group {
+                if let r = result { out.append(r) }
+            }
+            return out
         }
+
+        let partialHashGroups = Dictionary(grouping: partialResults, by: \.0)
+            .mapValues { $0.map(\.1) }
         let partialCandidates = partialHashGroups.values.filter { $0.count > 1 }
 
-        // Stage 3: Full hash (only for remaining candidates)
-        var fullHashGroups: [String: [FileItem]] = [:]
-        for group in partialCandidates {
-            for item in group {
-                if let hash = fullHash(item.url) {
-                    fullHashGroups[hash, default: []].append(item)
+        // Stage 3: Full hash (only for remaining candidates) — parallel
+        let fullResults = await withTaskGroup(of: (String, FileItem)?.self) { group -> [(String, FileItem)] in
+            for partialGroup in partialCandidates {
+                for item in partialGroup {
+                    group.addTask {
+                        guard let hash = Self.fullHash(item.url) else { return nil }
+                        return (hash, item)
+                    }
                 }
             }
+            var out: [(String, FileItem)] = []
+            for await result in group {
+                if let r = result { out.append(r) }
+            }
+            return out
         }
+
+        let fullHashGroups = Dictionary(grouping: fullResults, by: \.0)
+            .mapValues { $0.map(\.1) }
 
         // Stage 4: Filter out hard links (same inode)
         return fullHashGroups.values
@@ -82,7 +106,7 @@ public struct DuplicatesModule: ScanModule {
             .filter { $0.count > 1 }
     }
 
-    private func partialHash(_ url: URL, bytes: Int = 4096) -> String? {
+    static func partialHash(_ url: URL, bytes: Int = 4096) -> String? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
 
@@ -93,7 +117,7 @@ public struct DuplicatesModule: ScanModule {
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    private func fullHash(_ url: URL) -> String? {
+    static func fullHash(_ url: URL) -> String? {
         guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
         defer { try? handle.close() }
 

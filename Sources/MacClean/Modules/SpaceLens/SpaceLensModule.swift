@@ -5,6 +5,7 @@ public struct SpaceLensModule: ScanModule {
     public let id = "space_lens"
     public let name = "Space Lens"
     public let category = ModuleCategory.files
+    public let includedInSmartScan = false
 
     public init() {}
 

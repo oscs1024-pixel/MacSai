@@ -34,10 +34,7 @@ struct SmartScanView: View {
         ("maintenance", "Maintenance", "wrench.and.screwdriver", "Speed"),
         ("uninstaller", "Uninstaller", "xmark.app.fill", "Apps"),
         ("updater", "Updater", "arrow.triangle.2.circlepath", "Apps"),
-        ("spaceLens", "Space Lens", "chart.pie.fill", "Files"),
         ("largeOldFiles", "Large & Old Files", "doc.richtext.fill", "Files"),
-        ("duplicates", "Duplicates", "plus.square.on.square", "Files"),
-        ("shredder", "Shredder", "scissors", "Files"),
     ]
 
     var body: some View {

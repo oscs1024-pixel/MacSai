@@ -5,6 +5,7 @@ public struct ShredderModule: ScanModule {
     public let id = "shredder"
     public let name = "Shredder"
     public let category = ModuleCategory.files
+    public let includedInSmartScan = false
 
     public init() {}
 
