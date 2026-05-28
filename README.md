@@ -110,62 +110,69 @@ Mac Clean is designed to **never cause data loss**:
 - **Orphan safety policy** — orphan cleanup restricted to caches/logs only
 - **Operation logging** — every action logged to `~/Library/Logs/MacClean/`
 
-## Getting Started
+## Installation
 
-### Requirements
+### Via Homebrew (recommended)
+
+```bash
+brew tap iliyami/macclean
+brew install --cask mac-clean
+```
+
+After installation, launch from Spotlight or Applications. Because Mac Clean is not notarized (see [Signing & Notarization](#signing--notarization)), the first launch needs one of these:
+
+```bash
+# Option 1: remove the quarantine flag
+sudo xattr -dr com.apple.quarantine "/Applications/Mac Clean.app"
+```
+
+Or right-click the app in Finder and choose **Open** the first time.
+
+### Via DMG download
+
+Download the latest DMG from [Releases](https://github.com/iliyami/MacClean/releases/latest), open it, and drag Mac Clean to your Applications folder.
+
+### Build from source
+
+```bash
+git clone https://github.com/iliyami/MacClean.git
+cd MacClean
+swift build
+swift run MacCleanTestRunner   # run 56 tests
+bash scripts/build-dmg.sh      # build local DMG
+```
+
+### Granting Full Disk Access
+
+Some modules (Mail Attachments, Privacy, Malware) need Full Disk Access to scan protected areas:
+
+1. Open **System Settings → Privacy & Security → Full Disk Access**
+2. Click **+** and add **Mac Clean.app** from Applications
+3. Restart Mac Clean
+
+## Signing & Notarization
+
+**Current status:** Mac Clean is **ad-hoc signed but not notarized**. This is normal for open-source Mac projects without a paid Apple Developer ID ($99/year). It means:
+
+- Gatekeeper will warn on first launch (remove with `xattr` or right-click → Open)
+- The app cannot be submitted to the official Homebrew Cask repository (only personal taps work)
+- Functionally everything works the same as a notarized app
+
+If you want to build a notarized version:
+
+```bash
+export APPLE_DEVELOPER_ID='Developer ID Application: Your Name (TEAMID)'
+xcrun notarytool store-credentials 'MacClean' --apple-id YOU@example.com --team-id TEAMID
+export NOTARY_PROFILE='MacClean'
+bash scripts/build-dmg.sh --notarize
+```
+
+The build script handles signing with hardened runtime, submitting to Apple's notary service, and stapling the ticket to the DMG.
+
+## Requirements
 
 - macOS 14 (Sonoma) or later
-- Xcode 15+ or Swift 6 toolchain
-- Full Disk Access (for Mail, Safari, browser data scanning)
-
-### Build & Run
-
-```bash
-# Clone
-git clone https://github.com/YOUR_USERNAME/MacClean.git
-cd MacClean
-
-# Build
-swift build
-
-# Run tests
-swift run MacCleanTestRunner
-
-# Run the app (creates a temp .app bundle)
-APP_DIR="/tmp/MacClean.app/Contents"
-mkdir -p "$APP_DIR/MacOS" "$APP_DIR/Resources"
-cp "$(swift build --show-bin-path)/MacClean" "$APP_DIR/MacOS/MacClean"
-cp Resources/AppIcon.icns "$APP_DIR/Resources/" 2>/dev/null
-cat > "$APP_DIR/Info.plist" << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
-  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>CFBundleExecutable</key><string>MacClean</string>
-  <key>CFBundleIdentifier</key><string>com.macclean.app</string>
-  <key>CFBundleName</key><string>Mac Clean</string>
-  <key>CFBundleDisplayName</key><string>Mac Clean</string>
-  <key>CFBundleIconFile</key><string>AppIcon</string>
-  <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleVersion</key><string>1.0.0</string>
-  <key>CFBundleShortVersionString</key><string>1.0.0</string>
-  <key>LSMinimumSystemVersion</key><string>14.0</string>
-  <key>NSPrincipalClass</key><string>NSApplication</string>
-  <key>NSHighResolutionCapable</key><true/>
-</dict>
-</plist>
-EOF
-codesign --force --sign - /tmp/MacClean.app
-open /tmp/MacClean.app
-```
-
-### Build DMG for Distribution
-
-```bash
-bash scripts/build-dmg.sh
-# Output: .build/MacClean-1.0.0.dmg
-```
+- For building from source: Swift 6 toolchain (Xcode 16+)
 
 ### Granting Full Disk Access
 

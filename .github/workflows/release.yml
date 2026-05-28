@@ -70,7 +70,14 @@ jobs:
             --notes "$(cat <<EOF
           ## Mac Clean $TAG
 
-          ### Download
+          ### Install via Homebrew
+
+          \`\`\`
+          brew tap iliyami/macclean
+          brew install --cask mac-clean
+          \`\`\`
+
+          ### Or download directly
 
           Download **MacClean-${VERSION}.dmg**, open it, and drag Mac Clean to your Applications folder.
 
@@ -84,3 +91,58 @@ jobs:
           )"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Homebrew Cask in main repo
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SHA256=$(shasum -a 256 ".build/MacClean-${VERSION}.dmg" | awk '{print $1}')
+          echo "DMG SHA256: $SHA256"
+
+          sed -i '' "s/version \".*\"/version \"${VERSION}\"/" Casks/mac-clean.rb
+          sed -i '' "s/sha256 \".*\"/sha256 \"${SHA256}\"/" Casks/mac-clean.rb
+
+          echo "Updated cask formula:"
+          head -5 Casks/mac-clean.rb
+
+          if ! git diff --quiet Casks/mac-clean.rb; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add Casks/mac-clean.rb
+            git commit -m "Update Homebrew Cask to v${VERSION}"
+            git push origin main
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync cask to homebrew-macclean tap (if exists)
+        continue-on-error: true
+        run: |
+          REPO_OWNER="${{ github.repository_owner }}"
+          TAP="${REPO_OWNER}/homebrew-macclean"
+
+          # Check if tap exists
+          if ! gh repo view "${TAP}" &>/dev/null; then
+            echo "Tap ${TAP} does not exist yet. Skipping sync."
+            echo "Create it once with: bash scripts/setup-homebrew-tap.sh"
+            exit 0
+          fi
+
+          # Clone tap, update cask, push
+          TMP=$(mktemp -d)
+          cd "$TMP"
+          git clone "https://x-access-token:${GH_TOKEN}@github.com/${TAP}.git" tap
+          mkdir -p tap/Casks
+          cp "${GITHUB_WORKSPACE}/Casks/mac-clean.rb" tap/Casks/mac-clean.rb
+          cd tap
+          if ! git diff --quiet; then
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add Casks/mac-clean.rb
+            git commit -m "Update Mac Clean cask to v${{ steps.version.outputs.version }}"
+            git push origin main
+            echo "Cask synced to ${TAP}"
+          else
+            echo "Cask already up to date in ${TAP}"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.TAP_PUSH_TOKEN || secrets.GITHUB_TOKEN }}
