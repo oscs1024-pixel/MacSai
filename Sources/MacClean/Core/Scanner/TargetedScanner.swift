@@ -1,36 +1,7 @@
 import Foundation
 import MacCleanKit
 
-public struct ScanTarget: Sendable {
-    public let path: URL
-    public let recursive: Bool
-    public let maxDepth: Int?
-    public let fileExtensions: Set<String>?
-    public let minAge: TimeInterval?
-    public let maxAge: TimeInterval?
-    public let minSize: UInt64?
-    public let excludePatterns: [String]
-
-    public init(
-        path: URL,
-        recursive: Bool = true,
-        maxDepth: Int? = nil,
-        fileExtensions: Set<String>? = nil,
-        minAge: TimeInterval? = nil,
-        maxAge: TimeInterval? = nil,
-        minSize: UInt64? = nil,
-        excludePatterns: [String] = []
-    ) {
-        self.path = path
-        self.recursive = recursive
-        self.maxDepth = maxDepth
-        self.fileExtensions = fileExtensions
-        self.minAge = minAge
-        self.maxAge = maxAge
-        self.minSize = minSize
-        self.excludePatterns = excludePatterns
-    }
-}
+// `ScanTarget` moved to MacCleanKit for testability — see MacCleanKit/ScanTarget.swift.
 
 public actor TargetedScanner {
     private let resourceKeys: [URLResourceKey] = [
