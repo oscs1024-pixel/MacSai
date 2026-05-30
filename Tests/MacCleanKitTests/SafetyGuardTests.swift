@@ -118,24 +118,16 @@ final class SafetyGuardTests: XCTestCase {
     // below as the more practical attack vector.
 
     func testRejectsNullBytePath() throws {
-        // Embedded NULL bytes in URLs are nasty: on macOS 14 they survive
-        // construction and SafetyGuard.invalidPath has to catch them, but on
-        // macOS 15+ Foundation sanitizes them at URL(filePath:) time — and
-        // downstream APIs like resolvingSymlinksInPath() SIGSEGV on any NULL
-        // that slipped through.
-        //
-        // Two real cases at runtime:
-        //   1. URL kept the NULL  → path string contains "\0" → SafetyGuard's
-        //      early NULL check fires and throws .invalidPath. Verify that.
-        //   2. URL sanitized it   → nothing left to test; OS already protects
-        //      us. Skip.
+        // macOS 15 Foundation aborts inside URL(filePath:) when handed a
+        // string with an embedded NULL — there's no way to even construct
+        // the fixture, and the OS itself now blocks the attack vector at
+        // URL-construction time. SafetyGuard's own NULL-byte check is still
+        // exercised on older OS; skip on 15+ where the test scaffold can't
+        // be built.
+        if #available(macOS 15, *) {
+            throw XCTSkip("URL(filePath:) aborts on embedded NULL on macOS 15+; OS-level protection in effect.")
+        }
         let url = URL(filePath: "/tmp/file\u{0000}.txt")
-        let path = url.path(percentEncoded: false)
-        try XCTSkipUnless(
-            path.contains("\0"),
-            "URL(filePath:) sanitized the embedded NULL — OS-level protection " +
-            "in effect (macOS 15+); SafetyGuard.validatePath is not exercised here."
-        )
         XCTAssertThrowsError(try sg.validatePath(url)) {
             guard case SafetyGuard.SafetyError.invalidPath = $0 else {
                 return XCTFail("Expected invalidPath, got \($0)")
