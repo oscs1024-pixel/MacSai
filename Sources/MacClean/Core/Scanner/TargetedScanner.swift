@@ -61,6 +61,17 @@ public actor TargetedScanner {
                     }
                 }
 
+                // Excluded by name? Prune the whole subtree if it's a directory
+                // (e.g. com.spotify.client/* — deleting Spotify's cache wipes
+                // the user's offline music) and skip the item itself.
+                if matchesExcludePattern(url: fileURL, target: target) {
+                    let isDir = (try? fileURL.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+                    if isDir {
+                        enumerator.skipDescendants()
+                    }
+                    continue
+                }
+
                 if matchesTarget(url: fileURL, target: target),
                    let item = makeFileItem(from: fileURL, keys: keys) {
                     results.append(item)
@@ -84,13 +95,19 @@ public actor TargetedScanner {
         return results
     }
 
-    private static func matchesTarget(url: URL, target: ScanTarget) -> Bool {
+    private static func matchesExcludePattern(url: URL, target: ScanTarget) -> Bool {
         let name = url.lastPathComponent
-
         for pattern in target.excludePatterns {
             if name.localizedCaseInsensitiveContains(pattern) {
-                return false
+                return true
             }
+        }
+        return false
+    }
+
+    private static func matchesTarget(url: URL, target: ScanTarget) -> Bool {
+        if matchesExcludePattern(url: url, target: target) {
+            return false
         }
 
         if let extensions = target.fileExtensions {

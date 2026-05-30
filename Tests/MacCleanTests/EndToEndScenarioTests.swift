@@ -133,14 +133,7 @@ final class EndToEndScenarioTests: XCTestCase {
         XCTAssertTrue(foundURLs.contains(normalChild),
                       "Non-excluded subtree must surface in results")
 
-        // SPEC: nothing under the excluded directory should be in results.
-        // TargetedScanner today only checks lastPathComponent against
-        // excludePatterns, so children leak through. Wrap in XCTExpectFailure
-        // so the spec is asserted but CI stays green; remove the wrapper once
-        // production prunes excluded subtrees.
-        XCTExpectFailure("PRODUCTION BUG: TargetedScanner only matches excludePatterns " +
-                         "against lastPathComponent — children of excluded dirs leak through. " +
-                         "Fix: call enumerator.skipDescendants() when a directory matches.")
+        // SPEC: nothing under an excluded directory should be in results.
         XCTAssertFalse(foundURLs.contains(spotifyChild),
                        "Files under com.spotify.client must NOT be in results — " +
                        "deleting them destroys the user's Spotify offline music cache")
