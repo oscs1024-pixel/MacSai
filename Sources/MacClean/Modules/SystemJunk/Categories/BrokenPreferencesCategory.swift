@@ -15,44 +15,24 @@ struct BrokenPreferencesCategory: JunkCategory {
         ]
     }
 
+    /// Filters down to only plists that are PROVABLY broken — i.e. fail to
+    /// deserialize. Delegates to the pure `PlistJunkFilter` so the safety
+    /// logic stays testable in isolation.
+    ///
+    /// Previously this also flagged any plist whose filename looked like an
+    /// orphaned bundle ID. That caused false positives on Apple system files
+    /// (`com.apple.loginwindow.plist`, etc.) and any app not currently
+    /// registered with Launch Services. Removed for safety. See
+    /// `MacCleanKit/PlistJunkFilter.swift` for the contract and tests.
     func filterBrokenPlists(_ items: [FileItem]) -> [FileItem] {
         items.filter { item in
-            guard item.fileExtension == "plist" else { return false }
-
-            // Check 1: Can the plist be deserialized?
-            guard let data = try? Data(contentsOf: item.url) else { return true }
-
-            do {
-                _ = try PropertyListSerialization.propertyList(from: data, format: nil)
-            } catch {
-                return true // Corrupted plist
-            }
-
-            // Check 2: Does the bundle ID reference an installed app?
-            let bundleID = item.url.deletingPathExtension().lastPathComponent
-            if bundleID.contains(".") {
-                let appExists = appExistsForBundleID(bundleID)
-                if !appExists {
-                    return true // Orphaned preference
+            PlistJunkFilter.isLikelyBroken(
+                at: item.url,
+                loadData: { url in try? Data(contentsOf: url) },
+                appExistsForBundleID: { bundleID in
+                    NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil
                 }
-            }
-
-            return false
+            )
         }
-    }
-
-    private func appExistsForBundleID(_ bundleID: String) -> Bool {
-        // Check if any app with this bundle ID is installed
-        if NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil {
-            return true
-        }
-
-        // Also check containers
-        let containerPath = MCConstants.userContainers.appending(path: bundleID)
-        if FileManager.default.fileExists(atPath: containerPath.path(percentEncoded: false)) {
-            return true
-        }
-
-        return false
     }
 }

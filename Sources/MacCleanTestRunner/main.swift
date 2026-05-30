@@ -471,6 +471,106 @@ test("URLResourceKey prefetch works for size") {
 }
 
 // ============================================================
+// MARK: - PlistJunkFilter Tests
+// ============================================================
+//
+// These tests exist because the BrokenPreferences scanner previously
+// flagged any plist whose bundle ID wasn't currently registered with
+// Launch Services — which caught Apple system daemons, helpers,
+// frameworks, and any third-party app not currently registered with
+// LS. That's a data-loss risk. These tests document the safe contract.
+
+print("\n--- PlistJunkFilter Tests ---")
+
+// Helper: build a valid binary plist payload so deserialization succeeds.
+let validPlistData = try! PropertyListSerialization.data(
+    fromPropertyList: ["key": "value"],
+    format: .binary,
+    options: 0
+)
+let validPlistLoader: (URL) -> Data? = { _ in validPlistData }
+
+// LS state simulator: by default, NO bundle IDs are registered. This is the
+// worst-case for false positives, because every real Apple system plist
+// would fail a Launch Services lookup.
+let noAppRegistered: (String) -> Bool = { _ in false }
+let alwaysAppRegistered: (String) -> Bool = { _ in true }
+
+test("PlistJunkFilter: corrupt plist is flagged") {
+    let url = URL(filePath: "/tmp/com.example.broken.plist")
+    let corruptLoader: (URL) -> Data? = { _ in Data([0x00, 0xFF, 0x00]) }
+    let result = PlistJunkFilter.isLikelyBroken(
+        at: url, loadData: corruptLoader, appExistsForBundleID: alwaysAppRegistered
+    )
+    try assertTrue(result, "A plist that fails to deserialize must be flagged")
+}
+
+test("PlistJunkFilter: valid third-party plist is NOT flagged when app is registered") {
+    let url = URL(filePath: "/tmp/com.example.realapp.plist")
+    let result = PlistJunkFilter.isLikelyBroken(
+        at: url, loadData: validPlistLoader, appExistsForBundleID: alwaysAppRegistered
+    )
+    try assertFalse(result, "A valid plist with a registered owning app must never be flagged")
+}
+
+// --- SAFETY-CRITICAL tests below. These exposed the original bug. ---
+
+test("PlistJunkFilter: Apple system plist (com.apple.loginwindow) is NEVER flagged") {
+    let url = URL(filePath: "/Users/me/Library/Preferences/com.apple.loginwindow.plist")
+    let result = PlistJunkFilter.isLikelyBroken(
+        at: url, loadData: validPlistLoader, appExistsForBundleID: noAppRegistered
+    )
+    try assertFalse(result, "com.apple.loginwindow.plist must never be flagged for deletion — it's a critical system file")
+}
+
+test("PlistJunkFilter: Apple system plist (com.apple.dock) is NEVER flagged") {
+    let url = URL(filePath: "/Users/me/Library/Preferences/com.apple.dock.plist")
+    let result = PlistJunkFilter.isLikelyBroken(
+        at: url, loadData: validPlistLoader, appExistsForBundleID: noAppRegistered
+    )
+    try assertFalse(result, "com.apple.dock.plist must never be flagged")
+}
+
+test("PlistJunkFilter: Apple system plist (com.apple.finder) is NEVER flagged") {
+    let url = URL(filePath: "/Users/me/Library/Preferences/com.apple.finder.plist")
+    let result = PlistJunkFilter.isLikelyBroken(
+        at: url, loadData: validPlistLoader, appExistsForBundleID: noAppRegistered
+    )
+    try assertFalse(result, "com.apple.finder.plist must never be flagged")
+}
+
+test("PlistJunkFilter: Apple App Group plist (group.com.apple.notes) is NEVER flagged") {
+    let url = URL(filePath: "/Users/me/Library/Preferences/group.com.apple.notes.plist")
+    let result = PlistJunkFilter.isLikelyBroken(
+        at: url, loadData: validPlistLoader, appExistsForBundleID: noAppRegistered
+    )
+    try assertFalse(result, "App Group preferences for Apple apps must never be flagged")
+}
+
+test("PlistJunkFilter: third-party plist NOT flagged just because LS doesn't know the bundle") {
+    // Real-world case: an app the user installed but hasn't launched yet,
+    // or one installed outside /Applications. LS may not know about it.
+    let url = URL(filePath: "/Users/me/Library/Preferences/com.example.myapp.plist")
+    let result = PlistJunkFilter.isLikelyBroken(
+        at: url, loadData: validPlistLoader, appExistsForBundleID: noAppRegistered
+    )
+    try assertFalse(result, "A valid plist must never be flagged solely because Launch Services doesn't recognize its bundle ID. Too many false positives (uninstalled apps the user wants prefs preserved for, helpers, daemons, command-line tools, etc.)")
+}
+
+test("PlistJunkFilter: isAppleSystemDomain recognizes com.apple.* prefix") {
+    try assertTrue(PlistJunkFilter.isAppleSystemDomain("com.apple.loginwindow"))
+    try assertTrue(PlistJunkFilter.isAppleSystemDomain("com.apple.dock"))
+    try assertTrue(PlistJunkFilter.isAppleSystemDomain("COM.APPLE.FINDER"))
+    try assertFalse(PlistJunkFilter.isAppleSystemDomain("com.example.app"))
+    try assertFalse(PlistJunkFilter.isAppleSystemDomain("net.macromates.TextMate"))
+}
+
+test("PlistJunkFilter: isAppleSystemDomain recognizes group.com.apple.* App Groups") {
+    try assertTrue(PlistJunkFilter.isAppleSystemDomain("group.com.apple.notes"))
+    try assertTrue(PlistJunkFilter.isAppleSystemDomain("group.com.apple.mail"))
+}
+
+// ============================================================
 // MARK: - Summary
 // ============================================================
 
