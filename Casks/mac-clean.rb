@@ -1,6 +1,6 @@
 cask "mac-clean" do
   version "1.0.0"
-  sha256 "6d3777e029070bfe2b7d4d603f95147a8b228e2cc263c7be7258aabfeddb4191"
+  sha256 "7e8d1ec8a993b7474d786d6d44372ff61024581f0140190dc3b4edaecfdf7459"
 
   url "https://github.com/iliyami/MacClean/releases/download/v#{version}/MacClean-#{version}.dmg",
       verified: "github.com/iliyami/MacClean/"
