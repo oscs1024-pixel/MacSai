@@ -12,7 +12,8 @@
 <p align="center">
   <img src="https://img.shields.io/badge/platform-macOS%2014%2B-blue?style=flat-square" alt="macOS 14+" />
   <img src="https://img.shields.io/badge/swift-6.0-orange?style=flat-square" alt="Swift 6" />
-  <img src="https://img.shields.io/badge/tests-56%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-65%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/coverage-improving-orange?style=flat-square" alt="Coverage" />
   <img src="https://img.shields.io/badge/license-BSD--3--Clause-green?style=flat-square" alt="License" />
   <img src="https://img.shields.io/badge/security-audited-purple?style=flat-square" alt="Security" />
   <img src="https://img.shields.io/badge/PRs-welcome-ff69b4?style=flat-square" alt="PRs Welcome" />
@@ -248,20 +249,12 @@ swift run MacCleanTestRunner
 ```
 
 ```
-Results: 56 passed, 0 failed, 56 total
+Results: 65 passed, 0 failed, 65 total
 ```
 
-Tests cover:
-- File scanning (URLResourceKey prefetch, directory enumeration)
-- Safety guard (protected paths, symlink detection, file caps)
-- Cleaning engine (dry-run, trash, logging)
-- Database operations (GRDB migrations, CRUD)
-- All 16 system junk categories (path validation, filter logic)
-- Size formatting (bytes → human-readable)
-- Malware signatures (pattern matching)
-- App matching (10 match levels)
-- Treemap layout (squarified algorithm)
-- Live system checks (caches, logs, volumes, Trash)
+**Honest disclosure:** the 65 tests cover roughly **15–20% of the codebase**. Most coverage is on models, constants, the protected-paths blocklist, and the new `PlistJunkFilter`. The most safety-critical files — `SafetyGuard.swift` and `CleaningEngine.swift` — are barely tested today. There are no end-to-end tests.
+
+This is being fixed. See [`docs/TESTING.md`](docs/TESTING.md) for the full plan to reach 85%+ coverage with 100% on safety-critical paths. Progress is tracked in [issues labeled `testing`](https://github.com/iliyami/MacClean/issues?q=is%3Aissue+label%3Atesting). Contributions welcome — each phase has a "good first issue" surface.
 
 ## Security
 
