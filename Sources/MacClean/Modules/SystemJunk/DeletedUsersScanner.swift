@@ -1,51 +1,44 @@
 import Foundation
 import MacCleanKit
 
-struct DeletedUsersCategory: JunkCategory {
-    let scanCategory = ScanCategory.deletedUsers
+/// System-side wrapper around `DeletedUsersCategory`'s pure logic.
+/// Reads active usernames via `dscl`, compares to `/Users` contents using
+/// the pure `isResidualHomeFolder` decision function.
+public enum DeletedUsersScanner {
 
-    var targets: [ScanTarget] { [] }
-
-    func scanForDeletedUserFolders() -> [FileItem] {
+    public static func scanForDeletedUserFolders() -> [FileItem] {
         let fm = FileManager.default
         let usersDir = URL(filePath: "/Users")
 
         guard let userFolders = try? fm.contentsOfDirectory(
             at: usersDir,
-            includingPropertiesForKeys: [.isDirectoryKey, .totalFileAllocatedSizeKey]
+            includingPropertiesForKeys: [.isDirectoryKey]
         ) else { return [] }
 
-        let activeUsers = getActiveUsernames()
+        let activeUsers = readActiveUsernames()
 
         var results: [FileItem] = []
-
         for folder in userFolders {
             let values = try? folder.resourceValues(forKeys: [.isDirectoryKey])
             guard values?.isDirectory == true else { continue }
 
             let name = folder.lastPathComponent
+            guard DeletedUsersCategory.isResidualHomeFolder(name: name, activeUsers: activeUsers)
+            else { continue }
 
-            // Skip system folders
-            if ["Shared", ".localized", "Guest"].contains(name) { continue }
-            if name.hasPrefix(".") { continue }
-
-            // If this folder doesn't match an active user account, it's a residual
-            if !activeUsers.contains(name) {
-                let size = directorySize(folder)
-                results.append(FileItem(
-                    url: folder,
-                    name: name,
-                    size: size,
-                    allocatedSize: size,
-                    isDirectory: true
-                ))
-            }
+            let size = directorySize(folder)
+            results.append(FileItem(
+                url: folder,
+                name: name,
+                size: size,
+                allocatedSize: size,
+                isDirectory: true
+            ))
         }
-
         return results
     }
 
-    private func getActiveUsernames() -> Set<String> {
+    private static func readActiveUsernames() -> Set<String> {
         let process = Process()
         let pipe = Pipe()
         process.executableURL = URL(filePath: "/usr/bin/dscl")
@@ -58,22 +51,18 @@ struct DeletedUsersCategory: JunkCategory {
             process.waitUntilExit()
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             let output = String(data: data, encoding: .utf8) ?? ""
-            let users = output.components(separatedBy: "\n")
-                .map { $0.trimmingCharacters(in: .whitespaces) }
-                .filter { !$0.isEmpty && !$0.hasPrefix("_") }
-            return Set(users)
+            return DeletedUsersCategory.parseDsclOutput(output)
         } catch {
             return Set()
         }
     }
 
-    private func directorySize(_ url: URL) -> UInt64 {
+    private static func directorySize(_ url: URL) -> UInt64 {
         guard let enumerator = FileManager.default.enumerator(
             at: url,
             includingPropertiesForKeys: [.totalFileAllocatedSizeKey],
             options: [.skipsHiddenFiles]
         ) else { return 0 }
-
         var total: UInt64 = 0
         while let fileURL = enumerator.nextObject() as? URL {
             let v = try? fileURL.resourceValues(forKeys: [.totalFileAllocatedSizeKey])
