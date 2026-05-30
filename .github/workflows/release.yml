@@ -92,60 +92,41 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update Homebrew Cask in main repo
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          SHA256=$(shasum -a 256 ".build/MacClean-${VERSION}.dmg" | awk '{print $1}')
-          echo "DMG SHA256: $SHA256"
-
-          sed -i '' "s/version \".*\"/version \"${VERSION}\"/" Casks/mac-clean.rb
-          sed -i '' "s/sha256 \".*\"/sha256 \"${SHA256}\"/" Casks/mac-clean.rb
-
-          echo "Updated cask formula:"
-          head -5 Casks/mac-clean.rb
-
-          if ! git diff --quiet Casks/mac-clean.rb; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add Casks/mac-clean.rb
-            git commit -m "Update Homebrew Cask to v${VERSION}"
-            git push origin main
-          fi
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Sync cask to homebrew-macclean tap (if exists)
-        continue-on-error: true
+      - name: Update Homebrew cask in tap repo
         run: |
           REPO_OWNER="${{ github.repository_owner }}"
           TAP="${REPO_OWNER}/homebrew-macclean"
           CASK_PATH="Casks/mac-clean.rb"
           VERSION="${{ steps.version.outputs.version }}"
 
+          SHA256=$(shasum -a 256 ".build/MacClean-${VERSION}.dmg" | awk '{print $1}')
+          echo "DMG SHA256: $SHA256"
+
           if ! gh repo view "${TAP}" &>/dev/null; then
-            echo "Tap ${TAP} does not exist yet. Skipping sync."
-            echo "Create it once with: bash scripts/setup-homebrew-tap.sh"
-            exit 0
+            echo "::error::Tap ${TAP} not found. Create it with scripts/setup-homebrew-tap.sh"
+            exit 1
           fi
 
-          # Fetch existing file SHA (needed for update API call)
-          EXISTING_SHA=$(gh api "repos/${TAP}/contents/${CASK_PATH}" --jq '.sha' 2>/dev/null || echo "")
+          # Local Casks/mac-clean.rb is the template; sed in the new version
+          # and SHA, then push the result to the tap (not back to this repo —
+          # that's the race condition the previous workflow had).
+          sed -i '' "s/version \".*\"/version \"${VERSION}\"/" Casks/mac-clean.rb
+          sed -i '' "s/sha256 \".*\"/sha256 \"${SHA256}\"/" Casks/mac-clean.rb
+          echo "Cask preview:"
+          head -5 Casks/mac-clean.rb
 
-          # New content base64-encoded
+          EXISTING_SHA=$(gh api "repos/${TAP}/contents/${CASK_PATH}" --jq '.sha' 2>/dev/null || echo "")
           NEW_CONTENT=$(base64 -i Casks/mac-clean.rb)
 
-          # Compare with existing content
           EXISTING_CONTENT=""
           if [ -n "$EXISTING_SHA" ]; then
             EXISTING_CONTENT=$(gh api "repos/${TAP}/contents/${CASK_PATH}" --jq '.content' | tr -d '\n')
           fi
-
           if [ "$NEW_CONTENT" = "$EXISTING_CONTENT" ]; then
             echo "Cask already up to date in ${TAP}"
             exit 0
           fi
 
-          # Push via Contents API (works cross-repo with PAT)
           ARGS=(
             "repos/${TAP}/contents/${CASK_PATH}"
             -X PUT
@@ -157,8 +138,7 @@ jobs:
           if [ -n "$EXISTING_SHA" ]; then
             ARGS+=(-f "sha=${EXISTING_SHA}")
           fi
-
           gh api "${ARGS[@]}" >/dev/null
-          echo "Cask synced to ${TAP}"
+          echo "Cask updated in ${TAP} to v${VERSION}"
         env:
-          GH_TOKEN: ${{ secrets.TAP_PUSH_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.TAP_PUSH_TOKEN }}
