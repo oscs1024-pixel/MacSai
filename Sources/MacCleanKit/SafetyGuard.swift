@@ -1,13 +1,19 @@
 import Foundation
-import MacCleanKit
 
+/// Validates that a deletion operation is safe to execute.
+///
+/// This type lives in MacCleanKit (no FileManager / NSWorkspace dependencies)
+/// so it can be exhaustively unit-tested. The actual deletion happens in
+/// `CleaningEngine` in the MacClean target, which calls `validateDeletion`
+/// before touching any file.
 public struct SafetyGuard: Sendable {
-    public enum SafetyError: Error, LocalizedError {
+    public enum SafetyError: Error, LocalizedError, Equatable {
         case protectedPath(String)
         case tooManyFiles(Int)
         case symlinkTarget(String)
         case sipProtected(String)
         case outsideUserScope(String)
+        case invalidPath(String)
 
         public var errorDescription: String? {
             switch self {
@@ -21,12 +27,19 @@ public struct SafetyGuard: Sendable {
                 "Path is protected by System Integrity Protection: \(path)"
             case .outsideUserScope(let path):
                 "Path is outside the allowed user scope: \(path)"
+            case .invalidPath(let path):
+                "Path is invalid or contains illegal characters: \(path)"
             }
         }
     }
 
     public init() {}
 
+    /// Validates an entire deletion batch. Throws on the first failure.
+    ///
+    /// - Throws: `SafetyError.tooManyFiles` if the batch exceeds the cap.
+    /// - Throws: `SafetyError.invalidPath` if any path is empty or contains NULL bytes.
+    /// - Throws: any error from `validatePath` for the first unsafe path.
     public func validateDeletion(paths: [URL]) throws {
         if paths.count > MCConstants.maxFilesPerOperation {
             throw SafetyError.tooManyFiles(paths.count)
@@ -37,8 +50,33 @@ public struct SafetyGuard: Sendable {
         }
     }
 
+    /// Validates a single path against the safety policy.
+    ///
+    /// Safety checks (in order):
+    /// 1. Path is non-empty and contains no NULL bytes.
+    /// 2. After resolving symlinks, the path does not fall inside any protected
+    ///    prefix (`/System`, `/usr`, `/bin`, `/sbin`, etc.).
+    /// 3. After resolving symlinks, the path does not fall inside `/System/` (SIP).
+    /// 4. If symlink resolution changed the first 3 path components, the symlink
+    ///    is treated as suspicious (TOCTOU prevention).
     public func validatePath(_ url: URL) throws {
+        let original = url.path(percentEncoded: false)
+
+        if original.isEmpty {
+            throw SafetyError.invalidPath("(empty)")
+        }
+        if original.contains("\0") {
+            throw SafetyError.invalidPath(original)
+        }
+
         let resolvedPath = url.resolvingSymlinksInPath().path(percentEncoded: false)
+
+        // SIP check first — more specific than the general protected-paths
+        // blocklist. `/System` lives in both; we surface the more accurate
+        // "macOS will refuse this regardless of permissions" error.
+        if resolvedPath.hasPrefix("/System/") || resolvedPath == "/System" {
+            throw SafetyError.sipProtected(resolvedPath)
+        }
 
         for protected in MCConstants.protectedPaths {
             if resolvedPath.hasPrefix(protected + "/") || resolvedPath == protected {
@@ -46,13 +84,8 @@ public struct SafetyGuard: Sendable {
             }
         }
 
-        if resolvedPath.hasPrefix("/System/") {
-            throw SafetyError.sipProtected(resolvedPath)
-        }
-
-        let originalPath = url.path(percentEncoded: false)
-        if originalPath != resolvedPath {
-            let originalComponents = originalPath.components(separatedBy: "/")
+        if original != resolvedPath {
+            let originalComponents = original.components(separatedBy: "/")
             let resolvedComponents = resolvedPath.components(separatedBy: "/")
             if originalComponents.prefix(3) != resolvedComponents.prefix(3) {
                 throw SafetyError.symlinkTarget(resolvedPath)
@@ -60,10 +93,15 @@ public struct SafetyGuard: Sendable {
         }
     }
 
+    /// Returns true if the given bundle identifier names an Apple system app
+    /// that should never be uninstalled by the user.
     public func isProtectedApp(_ bundleID: String) -> Bool {
         MCConstants.protectedApps.contains(bundleID)
     }
 
+    /// Returns true if a "this preference is orphaned, delete it" decision is
+    /// safe for the given URL. Currently restricted to caches / logs / saved
+    /// app state / web data — never preferences, containers, or keychains.
     public func isSafeForOrphanDeletion(_ url: URL) -> Bool {
         let path = url.path(percentEncoded: false)
         let safePrefixes = [
