@@ -8,13 +8,33 @@ public actor XPCClient {
 
     private init() {}
 
+    /// Requirement string the client uses to verify the HELPER's signature.
+    /// Without this, a hostile app that registers the same Mach service
+    /// name (a "rogue helper") could intercept our commands and feed us
+    /// fake responses. The kernel rejects the connection if the listener
+    /// on the other end doesn't satisfy this requirement.
+    private static let helperRequirement =
+        "identifier \"\(MCConstants.helperBundleIdentifier)\""
+
     public func connect() -> NSXPCConnection {
         if let existing = connection, !existing.isEqual(nil) {
             return existing
         }
 
-        let conn = NSXPCConnection(machServiceName: MCConstants.helperBundleIdentifier, options: .privileged)
+        let conn = NSXPCConnection(
+            machServiceName: MCConstants.helperBundleIdentifier,
+            options: .privileged
+        )
         conn.remoteObjectInterface = NSXPCInterface(with: MacCleanHelperProtocol.self)
+
+        // Symmetric guard: if the helper isn't who we expect (e.g. a rogue
+        // helper registered the same Mach service name), the kernel
+        // refuses to wire up the connection. setCodeSigningRequirement
+        // throws synchronously if the requirement string is malformed;
+        // any malformation here is a build-time bug we want to fail loud
+        // about, hence try!.
+        try! conn.setCodeSigningRequirement(Self.helperRequirement)
+
         conn.invalidationHandler = {
             // Connection invalidated — next call to connect() will create a new one
         }
