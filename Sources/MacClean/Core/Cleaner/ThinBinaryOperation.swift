@@ -56,7 +56,23 @@ public actor ThinBinaryOperation {
 
     public init() {}
 
+    /// Thin a binary AND re-sign it ad-hoc. Use for standalone binaries
+    /// (not inside an app bundle whose other contents are mid-mutation).
     public func thin(binary: URL, to targetArch: BinaryArch) async throws -> Result {
+        try await thin(binary: binary, to: targetArch, resign: true)
+    }
+
+    /// Thin only — no codesign step. Use this when an outer orchestrator
+    /// (ThinAppBundleOperation) will do a single `codesign --deep` pass
+    /// over the whole bundle once every binary is in its final form. Inner
+    /// per-binary signing would otherwise fail because codesign validates
+    /// the parent bundle's subcomponents on the way through, and an
+    /// in-progress neighbor binary or framework would still be unsigned.
+    public func thinOnly(binary: URL, to targetArch: BinaryArch) async throws -> Result {
+        try await thin(binary: binary, to: targetArch, resign: false)
+    }
+
+    private func thin(binary: URL, to targetArch: BinaryArch, resign: Bool) async throws -> Result {
         let fm = FileManager.default
         let path = binary.path(percentEncoded: false)
 
@@ -109,20 +125,23 @@ public actor ThinBinaryOperation {
             throw OpError.backupFailed("could not promote thinned file: \(error.localizedDescription)")
         }
 
-        // 4. Re-sign + verify. On failure, restore from backup.
-        do {
-            try Self.runCodesignAdhoc(at: path)
-            try Self.runCodesignVerify(at: path)
-        } catch {
+        // 4. Re-sign + verify (unless caller opted out — orchestrator will
+        //    deep-sign at the bundle level).
+        if resign {
             do {
-                try? fm.removeItem(at: binary)
-                try fm.moveItem(at: backupURL, to: binary)
-                throw error
-            } catch let restoreError {
-                throw OpError.rollbackFailed(
-                    originalBackupAt: backupURL,
-                    underlying: "sign/verify failed: \(error.localizedDescription); rollback also failed: \(restoreError.localizedDescription)"
-                )
+                try Self.runCodesignAdhoc(at: path)
+                try Self.runCodesignVerify(at: path)
+            } catch {
+                do {
+                    try? fm.removeItem(at: binary)
+                    try fm.moveItem(at: backupURL, to: binary)
+                    throw error
+                } catch let restoreError {
+                    throw OpError.rollbackFailed(
+                        originalBackupAt: backupURL,
+                        underlying: "sign/verify failed: \(error.localizedDescription); rollback also failed: \(restoreError.localizedDescription)"
+                    )
+                }
             }
         }
 

@@ -80,7 +80,8 @@ final class MachOWalkerTests: XCTestCase {
         let parent = bundleURL.appending(path: "Contents/Frameworks/F.framework/Versions")
         let currentLink = parent.appending(path: "Current")
         try FileManager.default.createSymbolicLink(
-            at: currentLink, withDestinationURL: URL(filePath: "A")
+            atPath: currentLink.path(percentEncoded: false),
+            withDestinationPath: "A"
         )
 
         let found = walk()
