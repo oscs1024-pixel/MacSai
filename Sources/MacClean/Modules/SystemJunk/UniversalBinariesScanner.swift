@@ -1,5 +1,4 @@
 import Foundation
-import AppKit
 import MacCleanKit
 
 /// Walks `.app` bundles under a search root, asks `UniversalBinariesPolicy`
@@ -42,10 +41,22 @@ public enum UniversalBinariesScanner {
         host: BundleHostInfo,
         policy: UniversalBinariesPolicy
     ) -> FileItem? {
-        guard let bundle = Bundle(url: appURL),
-              let bundleID = bundle.bundleIdentifier,
-              let executableURL = bundle.executableURL
+        // Read Info.plist directly rather than going through Bundle — Bundle's
+        // load behavior varies across macOS versions and quietly returns nil
+        // for bundles missing keys we don't actually need.
+        let infoURL = appURL.appending(path: "Contents/Info.plist")
+        guard let data = try? Data(contentsOf: infoURL),
+              let plist = try? PropertyListSerialization.propertyList(
+                  from: data, format: nil
+              ) as? [String: Any],
+              let bundleID = plist["CFBundleIdentifier"] as? String,
+              let executable = plist["CFBundleExecutable"] as? String
         else { return nil }
+
+        let executableURL = appURL.appending(path: "Contents/MacOS/\(executable)")
+        guard FileManager.default.fileExists(
+            atPath: executableURL.path(percentEncoded: false)
+        ) else { return nil }
 
         let isAppStore = FileManager.default.fileExists(
             atPath: appURL.appending(path: "Contents/_MASReceipt/receipt").path(percentEncoded: false)
@@ -79,7 +90,7 @@ public enum UniversalBinariesScanner {
 
         return FileItem(
             url: executableURL,
-            name: "\(appURL.deletingPathExtension().lastPathComponent) (drop \(dropping.map(\.lipoName).sorted().joined(separator: ", ")))",
+            name: "\(appURL.deletingPathExtension().lastPathComponent) (drop \(dropping.map { $0.lipoName }.sorted().joined(separator: ", ")))",
             size: savings,
             allocatedSize: savings,
             isDirectory: false
