@@ -25,10 +25,10 @@ struct ContentView: View {
         }
         .navigationTitle("Mac Clean")
         // Native macOS pattern: small grey second line under the title.
-        // MCVersion.app is generated at build time from the package-root
-        // VERSION file by the VersionGen build plugin — single source of
-        // truth, no manual sync.
-        .navigationSubtitle("v\(MCVersion.app)")
+        // MCConstants.appVersion is checked against VERSION by CI
+        // (scripts/check-version-sync.sh) — drifting between the two
+        // fails the build.
+        .navigationSubtitle("v\(MCConstants.appVersion)")
     }
 
     @ViewBuilder

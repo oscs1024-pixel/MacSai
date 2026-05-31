@@ -124,4 +124,14 @@ public enum MCConstants {
 
     public static let operationLogDir = userLogs.appending(path: "MacClean")
     public static let operationLogFile = operationLogDir.appending(path: "operations.log")
+
+    // MARK: - App version
+    //
+    // Bumped alongside the VERSION file at the repo root. CI verifies the
+    // two stay in sync (scripts/check-version-sync.sh runs in ci.yml) —
+    // a mismatch fails the build loudly. Build-time codegen via a SwiftPM
+    // plugin was tried (commit history) but doesn't work under multi-arch
+    // `swift build --arch arm64 --arch x86_64` because xcbuild doesn't
+    // execute plugins.
+    public static let appVersion = "1.3.1"
 }

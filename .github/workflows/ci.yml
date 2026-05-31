@@ -16,6 +16,9 @@ jobs:
       - name: Show Xcode version
         run: xcodebuild -version
 
+      - name: Verify VERSION ↔ MCConstants.appVersion sync
+        run: bash scripts/check-version-sync.sh
+
       - name: Build
         run: swift build
 
