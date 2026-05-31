@@ -19,16 +19,73 @@ public enum CleanActions {
 
     /// Execute a user-initiated Clean operation against the given engine.
     /// Used by views that display `[ScanResult]` with per-item selection.
+    ///
+    /// Routes by category: most items go through `engine.clean(..., .trash)`,
+    /// but `.universalBinaries` items are thinned in place via
+    /// `ThinBinaryOperation` instead — trashing an app's executable would
+    /// break the app.
     @discardableResult
     public static func executeUserClean(
         results: [ScanResult],
         selectedItems: Set<URL>,
         engine: CleaningEngine
     ) async -> CleaningEngine.CleanResult {
-        let items = results
-            .flatMap(\.items)
-            .filter { selectedItems.contains($0.url) }
-        return await engine.clean(items: items, mode: .trash)
+        var trashItems: [FileItem] = []
+        var thinItems: [FileItem] = []
+        for result in results {
+            for item in result.items where selectedItems.contains(item.url) {
+                if result.category == .universalBinaries {
+                    thinItems.append(item)
+                } else {
+                    trashItems.append(item)
+                }
+            }
+        }
+
+        let trashResult = await engine.clean(items: trashItems, mode: .trash)
+        let thinResult = await thinSelectedBinaries(thinItems)
+        return CleaningEngine.CleanResult(
+            removedCount: trashResult.removedCount + thinResult.removedCount,
+            freedBytes: trashResult.freedBytes + thinResult.freedBytes,
+            errors: trashResult.errors + thinResult.errors,
+            skippedCount: trashResult.skippedCount + thinResult.skippedCount
+        )
+    }
+
+    /// Runs `ThinBinaryOperation` against each item and folds the per-binary
+    /// outcomes into a `CleaningEngine.CleanResult` shape so the caller's
+    /// "X items, Y MB freed" UI summary works uniformly.
+    private static func thinSelectedBinaries(
+        _ items: [FileItem]
+    ) async -> CleaningEngine.CleanResult {
+        guard !items.isEmpty else {
+            return CleaningEngine.CleanResult(
+                removedCount: 0, freedBytes: 0, errors: [], skippedCount: 0
+            )
+        }
+        let op = ThinBinaryOperation()
+        let targetArch = BundleHostInfo.current.hostArch
+        var savedCount = 0
+        var savedBytes: UInt64 = 0
+        var errors: [CleaningEngine.CleanError] = []
+        for item in items {
+            do {
+                let r = try await op.thin(binary: item.url, to: targetArch)
+                savedCount += 1
+                savedBytes += r.bytesSaved
+            } catch {
+                errors.append(CleaningEngine.CleanError(
+                    path: item.url.path(percentEncoded: false),
+                    error: "thin failed: \(error)"
+                ))
+            }
+        }
+        return CleaningEngine.CleanResult(
+            removedCount: savedCount,
+            freedBytes: savedBytes,
+            errors: errors,
+            skippedCount: 0
+        )
     }
 
     /// Execute a user-initiated Clean operation against a flat list of items.
