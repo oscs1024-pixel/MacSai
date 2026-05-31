@@ -14,7 +14,12 @@ set -euo pipefail
 APP_NAME="Mac Clean"
 BUNDLE_ID="com.macclean.app"
 VERSION="${VERSION:-$(cat VERSION 2>/dev/null | tr -d '[:space:]' || echo '1.0.0')}"
-BUILD_DIR=".build/release"
+# Multi-arch build emits the universal binary under .build/apple/Products/Release/
+# instead of the single-arch .build/release/. Without this, Intel Macs (anything
+# pre-Apple-Silicon, including the 2018 MBP A1989) launch the app and get
+# "you can't open the application MacClean because PowerPC applications are
+# no longer supported" — actually arm64 binaries get a similar refusal.
+BUILD_DIR=".build/apple/Products/Release"
 DMG_DIR=".build/dmg"
 DMG_NAME="MacClean-${VERSION}.dmg"
 
@@ -41,9 +46,9 @@ echo "Signing identity: $SIGNING_IDENTITY"
 echo "Notarize: $NOTARIZE"
 echo ""
 
-# Step 1: Build release
-echo "[1/6] Building release binary..."
-swift build -c release
+# Step 1: Build release as a universal (arm64 + x86_64) binary
+echo "[1/6] Building universal release binary (arm64 + x86_64)..."
+swift build -c release --arch arm64 --arch x86_64
 
 # Step 2: Create .app bundle
 echo "[2/6] Creating app bundle..."
