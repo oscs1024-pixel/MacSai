@@ -1,6 +1,5 @@
 import XCTest
-@testable import MacClean
-import MacCleanKit
+@testable import MacCleanKit
 import MacCleanTestSupport
 
 final class ThinAppBundleOperationTests: XCTestCase {

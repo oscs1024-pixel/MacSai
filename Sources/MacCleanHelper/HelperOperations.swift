@@ -73,6 +73,39 @@ final class HelperOperations: NSObject, MacCleanHelperProtocol {
         reply(result.output, result.error)
     }
 
+    func thinAppBundle(
+        atPath path: String,
+        targetArchName: String,
+        reply: @escaping (UInt64, NSError?) -> Void
+    ) {
+        // All defenses live in HelperThinning (MacCleanKit) so tests can
+        // exercise them without an XPC harness. This thin shim just bridges
+        // the @objc reply closure to async throws.
+        let bridge = ReplyBridge(reply: reply)
+        Task.detached {
+            do {
+                let r = try await HelperThinning.thinAppBundle(
+                    atPath: path, targetArchName: targetArchName
+                )
+                bridge.deliver(bytes: r.bytesSaved, error: nil)
+            } catch let e as HelperThinning.HelperError {
+                let (code, msg): (Int, String) = {
+                    switch e {
+                    case .protectedPath(let p):  (10, "Refused to thin protected path: \(p)")
+                    case .unknownArch(let a):    (11, "Unknown architecture: \(a)")
+                    case .operationFailed(let m): (12, m)
+                    }
+                }()
+                bridge.deliver(bytes: 0, error: NSError(
+                    domain: "MacCleanHelper", code: code,
+                    userInfo: [NSLocalizedDescriptionKey: msg]
+                ))
+            } catch {
+                bridge.deliver(bytes: 0, error: error as NSError)
+            }
+        }
+    }
+
     // MARK: - Helpers
 
     private func isProtected(_ path: String) -> Bool {
@@ -82,6 +115,16 @@ final class HelperOperations: NSObject, MacCleanHelperProtocol {
             }
         }
         return false
+    }
+
+    /// Sendable wrapper around the @objc reply closure so detached Tasks
+    /// can deliver results without Swift 6 strict-concurrency complaints.
+    /// The closure is delivered to exactly once by XPC semantics — no
+    /// actual concurrent access risk.
+    private final class ReplyBridge: @unchecked Sendable {
+        private let reply: (UInt64, NSError?) -> Void
+        init(reply: @escaping (UInt64, NSError?) -> Void) { self.reply = reply }
+        func deliver(bytes: UInt64, error: NSError?) { reply(bytes, error) }
     }
 
     private struct ProcessResult {

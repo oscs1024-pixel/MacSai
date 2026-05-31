@@ -1,5 +1,5 @@
 import XCTest
-@testable import MacClean
+@testable import MacCleanKit
 import MacCleanTestSupport
 
 final class MachOWalkerTests: XCTestCase {
