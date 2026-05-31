@@ -39,6 +39,18 @@ public struct SystemJunkModule: ScanModule {
         return await withTaskGroup(of: ScanResult?.self) { group in
             for cat in categories {
                 group.addTask {
+                    // UniversalBinaries needs a system-side scanner (walks
+                    // .app bundles, shells out to lipo, asks the policy)
+                    // rather than the targeted path enumerator.
+                    if cat.scanCategory == .universalBinaries {
+                        let items = UniversalBinariesScanner.scan()
+                        guard !items.isEmpty else { return nil }
+                        return ScanResult(
+                            category: .universalBinaries,
+                            items: items,
+                            autoSelect: cat.scanCategory.autoSelect
+                        )
+                    }
                     let items = await scanner.scan(targets: cat.targets)
                     var filtered = items
 

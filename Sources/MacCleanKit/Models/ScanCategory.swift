@@ -94,7 +94,11 @@ public enum ScanCategory: String, CaseIterable, Identifiable, Sendable {
 
     public var autoSelect: Bool {
         switch self {
-        case .unusedDiskImages, .largeFiles, .oldFiles, .duplicates:
+        case .unusedDiskImages, .largeFiles, .oldFiles, .duplicates,
+             .universalBinaries:
+            // universalBinaries: thinning modifies the app in place and
+            // re-signs ad-hoc. Reversible only by re-downloading the app.
+            // Don't pre-check; force explicit consent.
             false
         default:
             true
