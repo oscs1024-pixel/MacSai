@@ -25,6 +25,13 @@ public enum MCConstants {
     /// of room for real cache cleanups. Set well above the largest
     /// legitimate selection observed in the wild (~200k).
     public static let maxTotalItemsPerCleanOperation = 500_000
+
+    /// Selections above this size show a confirmation modal before Clean
+    /// fires. Catches the "I just clicked Clean and now my Mac is going
+    /// to do something for 5 minutes — was that intentional?" surprise.
+    /// 50k = ~5MB of cache items on average; comfortably covers normal
+    /// usage but flags the genuinely-big cleanups.
+    public static let cleanConfirmationThreshold = 50_000
     public static let scanThrottleInterval: TimeInterval = 0.05 // 50ms UI update throttle
 
     // MARK: - Protected Paths (never touch these)
