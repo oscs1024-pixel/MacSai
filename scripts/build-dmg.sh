@@ -100,6 +100,59 @@ if [ -f "Resources/AppIcon.icns" ]; then
     cp "Resources/AppIcon.icns" "${APP_BUNDLE}/Contents/Resources/"
 fi
 
+# Step 2.5: Nest the menu bar widget inside the main app as a LoginItem.
+# SMAppService.loginItem(identifier:) expects the helper at this exact path
+# (Contents/Library/LoginItems/<helper>.app), and the helper's bundle id
+# is what gets passed to register(). LSUIElement=true keeps it off the
+# Dock; it lives in the menu bar only.
+echo "[2.5/6] Bundling MacCleanMenu widget..."
+MENU_APP="${APP_BUNDLE}/Contents/Library/LoginItems/MacCleanMenu.app"
+mkdir -p "${MENU_APP}/Contents/MacOS"
+mkdir -p "${MENU_APP}/Contents/Resources"
+
+cp "${BUILD_DIR}/MacCleanMenu" "${MENU_APP}/Contents/MacOS/"
+
+cat > "${MENU_APP}/Contents/Info.plist" << MENU_PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleExecutable</key>
+    <string>MacCleanMenu</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.macclean.menu</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Mac Clean Menu</string>
+    <key>CFBundleDisplayName</key>
+    <string>Mac Clean Menu</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>${VERSION}</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>CFBundleIconFile</key>
+    <string>AppIcon</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>LSUIElement</key>
+    <true/>
+</dict>
+</plist>
+MENU_PLIST
+
+if [ -f "Resources/AppIcon.icns" ]; then
+    cp "Resources/AppIcon.icns" "${MENU_APP}/Contents/Resources/"
+fi
+
 # Step 3: Entitlements (needed for notarization with hardened runtime)
 echo "[3/6] Creating entitlements..."
 cat > "${DMG_DIR}/entitlements.plist" << ENTITLEMENTS
