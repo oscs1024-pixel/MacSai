@@ -43,7 +43,7 @@ public struct LargeOldFilesModule: ScanModule {
         if !split.old.isEmpty {
             results.append(ScanResult(category: .oldFiles, items: split.old, autoSelect: false))
         }
-        return results
+        return results.filteringUncleanable()
     }
 
     /// Pure splitter for testability: classifies file items into "large" and "old"

@@ -89,7 +89,9 @@ public struct SystemJunkModule: ScanModule {
                     results.append(result)
                 }
             }
-            return results.sorted { $0.totalSize > $1.totalSize }
+            return results
+                .filteringUncleanable()
+                .sorted { $0.totalSize > $1.totalSize }
         }
     }
 }

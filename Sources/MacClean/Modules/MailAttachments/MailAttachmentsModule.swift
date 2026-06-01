@@ -52,5 +52,6 @@ public struct MailAttachmentsModule: ScanModule {
         guard !items.isEmpty else { return [] }
 
         return [ScanResult(category: .mailAttachments, items: items)]
+            .filteringUncleanable()
     }
 }

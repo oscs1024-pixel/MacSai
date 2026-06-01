@@ -45,7 +45,7 @@ public struct PrivacyModule: ScanModule {
         if !system.isEmpty {
             results.append(ScanResult(category: .systemPrivacy, items: system))
         }
-        return results
+        return results.filteringUncleanable()
     }
 
     private func scanBrowserData() async -> [FileItem] {

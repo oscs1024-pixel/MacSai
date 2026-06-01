@@ -30,6 +30,7 @@ public struct DuplicatesModule: ScanModule {
 
         guard !duplicates.isEmpty else { return [] }
         return [ScanResult(category: .duplicates, items: duplicates, autoSelect: false)]
+            .filteringUncleanable()
     }
 
     /// Run the full pipeline. Pure decisions come from `DuplicateDetection`

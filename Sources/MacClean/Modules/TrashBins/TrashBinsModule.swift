@@ -33,5 +33,6 @@ public struct TrashBinsModule: ScanModule {
         guard !items.isEmpty else { return [] }
 
         return [ScanResult(category: .trashBins, items: items)]
+            .filteringUncleanable()
     }
 }
