@@ -7,6 +7,7 @@ struct TrashBinsView: View {
     @State private var selectedItems: Set<URL> = []
     @State private var isScanning = false
     @State private var scanComplete = false
+    @State private var permissionDenied = false
     @State private var completion: CleanSummary?
     @State private var cleaning: CleaningEngine.Progress?
     @State private var cleanTask: Task<Void, Never>?
@@ -27,10 +28,12 @@ struct TrashBinsView: View {
             scanComplete: scanComplete,
             completion: completion,
             cleaning: cleaning,
+            permissionDenied: permissionDenied,
             onScan: scan,
             onClean: clean,
             onCancelClean: { cleanTask?.cancel() },
-            onReset: reset
+            onReset: reset,
+            onGrantAccess: { PermissionManager.shared.openFullDiskAccessSettings() }
         )
     }
 
@@ -40,6 +43,7 @@ struct TrashBinsView: View {
     private func scan() {
         isScanning = true
         scanComplete = false
+        permissionDenied = false
         scanProgress = 0
         Task {
             let scanStart = Date()
@@ -51,8 +55,10 @@ struct TrashBinsView: View {
             scanPhase = "Checking external drives..."
             scanProgress = 0.6
 
-            async let scanTask = module.scan()
-            results = await scanTask
+            async let scanTask = module.scanReportingPermissions()
+            let outcome = await scanTask
+            results = outcome.results
+            permissionDenied = outcome.permissionDenied
 
             scanPhase = "Calculating sizes..."
             scanProgress = 0.9
@@ -97,6 +103,6 @@ struct TrashBinsView: View {
     }
 
     private func reset() {
-        results = []; selectedItems = []; completion = nil; cleaning = nil; cleanTask = nil; scanComplete = false
+        results = []; selectedItems = []; completion = nil; cleaning = nil; cleanTask = nil; scanComplete = false; permissionDenied = false
     }
 }

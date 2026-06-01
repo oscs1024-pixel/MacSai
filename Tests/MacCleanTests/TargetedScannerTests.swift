@@ -1,5 +1,6 @@
 import XCTest
 import Foundation
+import Darwin
 @testable import MacClean
 import MacCleanKit
 import MacCleanTestSupport
@@ -95,6 +96,74 @@ final class TargetedScannerTests: XCTestCase {
                 ScanTarget(path: b, recursive: false),
             ])
             XCTAssertEqual(items.count, 2)
+        }
+    }
+
+    // MARK: - Overlapping targets must not double-count (duplicate-row bug)
+
+    /// Mirrors the real Large & Old Files bug: that module scans `~`
+    /// recursively *and* `~/Downloads` recursively, so every Downloads file
+    /// was enumerated twice and surfaced as two identical rows (and a
+    /// double-counted size estimate). Overlapping targets must emit each
+    /// URL exactly once.
+    func testOverlappingTargetsDeduplicateByURL() async throws {
+        try await TestFixtures.withTempDir { dir in
+            let downloads = dir.appending(path: "Downloads")
+            try TestFixtures.writeFile(at: downloads.appending(path: "big.dmg"), size: 100)
+
+            let items = await TargetedScanner().scan(targets: [
+                ScanTarget(path: dir, recursive: true),        // parent sweep
+                ScanTarget(path: downloads, recursive: true),  // explicit child — overlaps
+            ])
+
+            let dmgs = items.filter { $0.name == "big.dmg" }
+            XCTAssertEqual(dmgs.count, 1,
+                           "overlapping targets must not emit the same file twice")
+        }
+    }
+
+    func testSameTargetListedTwiceDeduplicates() async throws {
+        try await TestFixtures.withTempDir { dir in
+            try TestFixtures.writeFile(at: dir.appending(path: "a.log"), size: 1)
+            try TestFixtures.writeFile(at: dir.appending(path: "b.log"), size: 1)
+
+            let target = ScanTarget(path: dir, recursive: false)
+            let items = await TargetedScanner().scan(targets: [target, target])
+            XCTAssertEqual(items.count, 2)
+        }
+    }
+
+    // MARK: - Permission denial is surfaced, not swallowed (#1)
+
+    /// `~/.Trash` without Full Disk Access reads as "empty" because the
+    /// enumerator silently swallows EPERM. A chmod-000 directory reproduces
+    /// the same EACCES denial: the scan must report it as `permissionDenied`
+    /// rather than an indistinguishable empty result.
+    func testPermissionDeniedDirectoryIsReported() async throws {
+        try await TestFixtures.withTempDir { dir in
+            let locked = dir.appending(path: "locked")
+            try TestFixtures.writeFile(at: locked.appending(path: "secret.bin"), size: 10)
+            _ = chmod(locked.path(percentEncoded: false), 0o000)
+            defer { _ = chmod(locked.path(percentEncoded: false), 0o755) } // so cleanup can remove it
+
+            let outcome = await TargetedScanner().scanReportingPermissions(
+                targets: [ScanTarget(path: locked, recursive: true)]
+            )
+
+            XCTAssertTrue(outcome.items.isEmpty)
+            XCTAssertTrue(outcome.permissionDenied,
+                          "an unreadable directory must surface as permissionDenied")
+            XCTAssertEqual(outcome.permissionDeniedPaths, [locked])
+        }
+    }
+
+    func testReadableEmptyDirectoryIsNotPermissionDenied() async throws {
+        try await TestFixtures.withTempDir { dir in
+            let outcome = await TargetedScanner().scanReportingPermissions(
+                targets: [ScanTarget(path: dir, recursive: true)]
+            )
+            XCTAssertFalse(outcome.permissionDenied,
+                           "a readable but empty dir is not a permission problem")
         }
     }
 }
