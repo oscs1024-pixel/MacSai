@@ -118,10 +118,20 @@ public actor HealthMonitor {
 
     private func ensureAuthorization() async -> Bool {
         if authorizationRequested {
-            let settings = await UNUserNotificationCenter.current().notificationSettings()
-            return settings.authorizationStatus == .authorized || settings.authorizationStatus == .provisional
+            return await Self.isAuthorized()
         }
         authorizationRequested = true
         return (try? await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])) ?? false
+    }
+
+    /// `UNNotificationSettings` is non-Sendable, so awaiting it from
+    /// inside the actor fails Swift 6 strict-concurrency. Hop through
+    /// a static (actor-unisolated) helper: the settings object is
+    /// created and consumed in the nonisolated context, and only the
+    /// Sendable `Bool` crosses back to the actor.
+    private static func isAuthorized() async -> Bool {
+        let settings = await UNUserNotificationCenter.current().notificationSettings()
+        return settings.authorizationStatus == .authorized
+            || settings.authorizationStatus == .provisional
     }
 }
