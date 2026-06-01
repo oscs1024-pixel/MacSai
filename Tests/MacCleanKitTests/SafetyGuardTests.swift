@@ -141,6 +141,84 @@ final class SafetyGuardTests: XCTestCase {
         XCTAssertNoThrow(try sg.validatePath(trickyURL))
     }
 
+    // MARK: - macOS firmlinks (/var, /tmp, /etc → /private/...)
+    //
+    // macOS canonicalizes /var to /private/var (and /tmp, /etc) via
+    // system-wide firmlinks. SafetyGuard's symlink-target check
+    // resolves the URL and compares the first 3 path components; if it
+    // doesn't know about firmlinks it sees /var/log → /private/var/log
+    // as an "attacker redirect" and refuses every legitimate path
+    // under /var, /tmp, /etc.
+    //
+    // The user-facing fallout: System Log Files category scans /var/log
+    // and surfaces ~4k items; clicking Clean refuses ALL of them with
+    // "Path resolves through symlink to unexpected location: …".
+
+    /// SPEC: when the scanner returns /private/var/log/... (the canonical
+    /// form that FileManager.enumerator emits on Sequoia for paths
+    /// under /var), resolvingSymlinksInPath() reduces it to /var/log/...
+    /// The two forms are the SAME identity via a macOS firmlink, not an
+    /// attacker redirect. SafetyGuard must accept both forms equivalently.
+    ///
+    /// User-facing fallout: pre-fix, scanning /var/log surfaces ~4k log
+    /// files and clicking Clean refuses every one of them with
+    /// "Path resolves through symlink to unexpected location: /var/log/...".
+    func testAllowsPrivateVarLogPath_firmlinkResolutionIsBenign() {
+        XCTAssertNoThrow(
+            try sg.validatePath(URL(filePath: "/private/var/log/wifi.log")),
+            "/private/var/log/* resolves to /var/log/* via macOS firmlink — same identity"
+        )
+    }
+
+    func testAllowsVarLogPath_firmlinkResolutionIsBenign() {
+        XCTAssertNoThrow(
+            try sg.validatePath(URL(filePath: "/var/log/wifi.log")),
+            "/var/log/* must not be flagged — /var is a system firmlink"
+        )
+    }
+
+    func testAllowsPrivateTmpPath_firmlinkResolutionIsBenign() {
+        XCTAssertNoThrow(
+            try sg.validatePath(URL(filePath: "/private/tmp/macclean-test.txt")),
+            "/private/tmp/* is the canonical form of /tmp/* via macOS firmlink"
+        )
+    }
+
+    func testAllowsPrivateEtcPath_firmlinkResolutionIsBenign() {
+        XCTAssertNoThrow(
+            try sg.validatePath(URL(filePath: "/private/etc/hosts")),
+            "/private/etc/* is the canonical form of /etc/* via macOS firmlink"
+        )
+    }
+
+    /// SPEC (counterpart): real attacker redirects must STILL be
+    /// refused. Existing tests cover ~/symlink-to-/System cases, but
+    /// pin the contract here against accidental over-permissiveness:
+    /// a `/private/` prefix on the resolved path should ONLY get a
+    /// pass when the corresponding original-side firmlink prefix is
+    /// the one being canonicalized, not arbitrarily.
+    func testRejectsNonFirmlinkRedirectToPrivate() throws {
+        // Set up: ~/macclean-test-evil → /private/var/db (which is
+        // protected). Even though both sides involve /private/, the
+        // original-side prefix isn't /var or /tmp or /etc — so the
+        // canonicalization doesn't apply and the redirect must be
+        // refused via either protectedPath or symlinkTarget.
+        try TestFixtures.withTempDir { tmp in
+            let evil = tmp.appending(path: "macclean-test-evil")
+            let target = "/private/var/db"
+            try FileManager.default.createSymbolicLink(
+                atPath: evil.path(percentEncoded: false),
+                withDestinationPath: target
+            )
+            XCTAssertThrowsError(try sg.validatePath(evil)) {
+                XCTAssertTrue(
+                    $0 is SafetyGuard.SafetyError,
+                    "attacker symlink to a protected location must still be refused"
+                )
+            }
+        }
+    }
+
     // MARK: - File cap
 
     func testAllowsTenThousandFiles() throws {

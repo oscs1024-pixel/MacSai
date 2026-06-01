@@ -71,26 +71,64 @@ public struct SafetyGuard: Sendable {
 
         let resolvedPath = url.resolvingSymlinksInPath().path(percentEncoded: false)
 
+        // Canonicalize macOS firmlinks (/var, /tmp, /etc → strip /private)
+        // up-front so every downstream check operates on stable strings.
+        // Without this, the SAME file looks different to the protected-
+        // paths check vs the redirect check depending on whether
+        // FileManager.enumerator handed us /var/log/x or /private/var/log/x
+        // on this particular macOS version.
+        let originalCanonical = Self.canonicalizeMacOSFirmlinks(original)
+        let resolvedCanonical = Self.canonicalizeMacOSFirmlinks(resolvedPath)
+
         // SIP check first — more specific than the general protected-paths
         // blocklist. `/System` lives in both; we surface the more accurate
         // "macOS will refuse this regardless of permissions" error.
-        if resolvedPath.hasPrefix("/System/") || resolvedPath == "/System" {
+        if resolvedCanonical.hasPrefix("/System/") || resolvedCanonical == "/System" {
             throw SafetyError.sipProtected(resolvedPath)
         }
 
-        for protected in MCConstants.protectedPaths {
-            if resolvedPath.hasPrefix(protected + "/") || resolvedPath == protected {
+        for protected in Self.canonicalProtectedPaths {
+            if resolvedCanonical.hasPrefix(protected + "/") || resolvedCanonical == protected {
                 throw SafetyError.protectedPath(resolvedPath)
             }
         }
 
-        if original != resolvedPath {
-            let originalComponents = original.components(separatedBy: "/")
-            let resolvedComponents = resolvedPath.components(separatedBy: "/")
+        if originalCanonical != resolvedCanonical {
+            let originalComponents = originalCanonical.components(separatedBy: "/")
+            let resolvedComponents = resolvedCanonical.components(separatedBy: "/")
             if originalComponents.prefix(3) != resolvedComponents.prefix(3) {
                 throw SafetyError.symlinkTarget(resolvedPath)
             }
         }
+    }
+
+    /// `MCConstants.protectedPaths` with macOS firmlinks canonicalized so
+    /// `/private/var/db` matches `/var/db` (and vice versa). Computed once.
+    private static let canonicalProtectedPaths: Set<String> =
+        Set(MCConstants.protectedPaths.map(SafetyGuard.canonicalizeMacOSFirmlinks))
+
+    /// Strips the `/private/` prefix when the immediate next component
+    /// is one of macOS's firmlink mounts (`var`, `tmp`, `etc`). After
+    /// this, `/private/var/log/wifi.log` and `/var/log/wifi.log` are the
+    /// same string — which is the right answer for redirect detection,
+    /// because they ARE the same on-disk location reached via different
+    /// canonicalization paths.
+    ///
+    /// We only canonicalize the three known firmlinks. Arbitrary paths
+    /// under `/private/` (e.g. `/private/var/db`, which is a real
+    /// protected location) keep their form so the protected-paths check
+    /// stays effective.
+    static func canonicalizeMacOSFirmlinks(_ path: String) -> String {
+        for firmlink in ["var", "tmp", "etc"] {
+            let privatePrefix = "/private/\(firmlink)"
+            if path == privatePrefix {
+                return "/\(firmlink)"
+            }
+            if path.hasPrefix(privatePrefix + "/") {
+                return "/\(firmlink)" + path.dropFirst(privatePrefix.count)
+            }
+        }
+        return path
     }
 
     /// Returns true if the given bundle identifier names an Apple system app
