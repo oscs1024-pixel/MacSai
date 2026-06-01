@@ -21,15 +21,23 @@ public struct CleanSummary: Sendable, Equatable {
     public let freedBytes: UInt64
     public let errorCount: Int
 
+    /// First error's human-readable message, when there is one. The UI
+    /// shows this directly in the completion screen instead of a generic
+    /// "Check Console for details" line — saves the user from having to
+    /// open Console.app to find out it was a limit/permission issue.
+    public let firstErrorMessage: String?
+
     public init(
         selectedCount: Int,
         removedCount: Int,
         freedBytes: UInt64,
-        errorCount: Int
+        errorCount: Int,
+        firstErrorMessage: String? = nil
     ) {
         self.selectedCount = selectedCount
         self.removedCount = removedCount
         self.freedBytes = freedBytes
         self.errorCount = errorCount
+        self.firstErrorMessage = firstErrorMessage
     }
 }

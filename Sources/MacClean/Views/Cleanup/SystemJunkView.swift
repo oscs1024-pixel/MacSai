@@ -168,11 +168,20 @@ struct SystemJunkView: View {
                 Text("\(summary.selectedCount) item\(summary.selectedCount == 1 ? "" : "s") couldn't be cleaned")
                     .font(.system(size: 18, weight: .semibold))
                     .foregroundStyle(.white)
-                Text("\(summary.errorCount) error\(summary.errorCount == 1 ? "" : "s") during cleanup. Check Console for details.")
-                    .font(.system(size: 13))
-                    .foregroundStyle(.white.opacity(0.65))
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 40)
+                if summary.errorCount == 1, let msg = summary.firstErrorMessage {
+                    Text(msg)
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.75))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                        .textSelection(.enabled)
+                } else {
+                    Text("\(summary.errorCount) error\(summary.errorCount == 1 ? "" : "s") during cleanup. Check Console for details.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.white.opacity(0.65))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 40)
+                }
             } else {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 52))
