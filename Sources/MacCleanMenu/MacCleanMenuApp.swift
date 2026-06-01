@@ -198,36 +198,51 @@ struct MenuContentView: View {
         }
     }
 
+    /// Uniform height for every stat card so the 2×2 grid stays aligned
+    /// regardless of whether a card has a subtitle line.
+    private static let statCardHeight: CGFloat = 150
+
     private func ringCard(icon: String, label: String, value: Double, center: String, sub: String?, forceColor: Color? = nil) -> some View {
         let color = forceColor ?? MenuPalette.barColor(value)
-        return VStack(spacing: 7) {
-            HStack(spacing: 5) {
-                Image(systemName: icon).font(.system(size: 10, weight: .semibold)).foregroundStyle(color)
-                Text(label).font(.system(size: 11, weight: .medium)).foregroundStyle(MenuPalette.textPrimary)
+        return VStack(spacing: 9) {
+            HStack(spacing: 6) {
+                Image(systemName: icon).font(.system(size: 11, weight: .semibold)).foregroundStyle(color)
+                Text(label).font(.system(size: 12, weight: .semibold)).foregroundStyle(MenuPalette.textPrimary)
                 Spacer()
             }
             RingGauge(value: value, color: color, center: center)
-                .frame(width: 54, height: 54)
-            if let sub {
-                Text(sub).font(.system(size: 10, design: .monospaced)).foregroundStyle(MenuPalette.textSecondary)
-            }
+                .frame(width: 58, height: 58)
+            // Always render the subtitle line (a space when empty) so
+            // every card is the same height and the rings line up.
+            Text(sub ?? " ")
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(MenuPalette.textSecondary)
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .frame(height: Self.statCardHeight)
         .glassCard()
     }
 
     private func uptimeCard(_ s: SystemStatsCollector.SystemStats) -> some View {
-        VStack(spacing: 7) {
-            HStack(spacing: 5) {
-                Image(systemName: "clock").font(.system(size: 10, weight: .semibold)).foregroundStyle(MenuPalette.teal)
-                Text("Uptime").font(.system(size: 11, weight: .medium)).foregroundStyle(MenuPalette.textPrimary)
+        VStack(spacing: 9) {
+            HStack(spacing: 6) {
+                Image(systemName: "clock").font(.system(size: 11, weight: .semibold)).foregroundStyle(MenuPalette.teal)
+                Text("Uptime").font(.system(size: 12, weight: .semibold)).foregroundStyle(MenuPalette.textPrimary)
                 Spacer()
             }
-            Text(formatUptime(s.uptime)).font(.system(size: 18, weight: .semibold, design: .rounded)).foregroundStyle(.white)
-                .frame(height: 54)
+            Spacer(minLength: 0)
+            Text(formatUptime(s.uptime)).font(.system(size: 20, weight: .semibold, design: .rounded)).foregroundStyle(.white)
+            Spacer(minLength: 0)
+            Text(" ").font(.system(size: 10, design: .monospaced))
         }
-        .frame(maxWidth: .infinity).padding(.vertical, 12).glassCard()
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 14)
+        .frame(height: Self.statCardHeight)
+        .glassCard()
     }
 
     // MARK: Network strip
