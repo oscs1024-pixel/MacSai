@@ -19,25 +19,59 @@ public struct CleanSummary: Sendable, Equatable {
     public let removedCount: Int
 
     public let freedBytes: UInt64
-    public let errorCount: Int
 
-    /// First error's human-readable message, when there is one. The UI
-    /// shows this directly in the completion screen instead of a generic
-    /// "Check Console for details" line — saves the user from having to
-    /// open Console.app to find out it was a limit/permission issue.
-    public let firstErrorMessage: String?
+    /// Every error message produced during the operation. Aggregated
+    /// downstream into top-N groups for the UI; kept raw so a future
+    /// "Show All Errors" inspector can list every individual failure.
+    public let errorMessages: [String]
+
+    public var errorCount: Int { errorMessages.count }
+
+    /// First raw error message, if any. Used for the single-error
+    /// completion screen variant where showing the full text is honest.
+    public var firstErrorMessage: String? { errorMessages.first }
+
+    /// Top-3 most-frequent error messages with their counts. When 49,918
+    /// items fail, the user wants to know what kind of failure dominates
+    /// ("Operation not permitted") and how many — not a flat number
+    /// that points them at Console.app.
+    public var topErrorGroups: [ErrorGroup] {
+        ErrorGroup.top(in: errorMessages, k: 3)
+    }
 
     public init(
         selectedCount: Int,
         removedCount: Int,
         freedBytes: UInt64,
-        errorCount: Int,
-        firstErrorMessage: String? = nil
+        errorMessages: [String]
     ) {
         self.selectedCount = selectedCount
         self.removedCount = removedCount
         self.freedBytes = freedBytes
-        self.errorCount = errorCount
-        self.firstErrorMessage = firstErrorMessage
+        self.errorMessages = errorMessages
+    }
+
+    public struct ErrorGroup: Sendable, Equatable, Hashable {
+        public let message: String
+        public let count: Int
+
+        public init(message: String, count: Int) {
+            self.message = message
+            self.count = count
+        }
+
+        /// Top-`k` most frequent messages in `messages`, sorted by count
+        /// descending then by message text ascending for deterministic
+        /// ordering across runs.
+        public static func top(in messages: [String], k: Int) -> [ErrorGroup] {
+            guard k > 0, !messages.isEmpty else { return [] }
+            let grouped = Dictionary(grouping: messages, by: { $0 })
+                .map { ErrorGroup(message: $0.key, count: $0.value.count) }
+                .sorted {
+                    if $0.count != $1.count { return $0.count > $1.count }
+                    return $0.message < $1.message
+                }
+            return Array(grouped.prefix(k))
+        }
     }
 }

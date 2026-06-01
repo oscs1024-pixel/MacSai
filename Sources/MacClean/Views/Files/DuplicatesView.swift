@@ -196,8 +196,7 @@ struct DuplicatesView: View {
                 selectedCount: preCleanSelectedCount,
                 removedCount: result.removedCount,
                 freedBytes: result.freedBytes,
-                errorCount: result.errors.count,
-                firstErrorMessage: result.errors.first?.error
+                errorMessages: result.errors.map(\.error)
             )
         }
     }

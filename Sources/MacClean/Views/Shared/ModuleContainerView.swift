@@ -97,6 +97,56 @@ struct ModuleContainerView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    /// Renders the error summary on the post-clean screen. Single error
+    /// gets the full message; multi-error shows the top-3 groups
+    /// ("X items: <message>") sorted by count, so the user immediately
+    /// sees what kind of failure dominated rather than a flat count
+    /// pointing them at Console.app.
+    @ViewBuilder
+    private func cleanErrorDetail(for summary: CleanSummary) -> some View {
+        if summary.errorCount == 1, let msg = summary.firstErrorMessage {
+            Text(msg)
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.75))
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, 40)
+                .textSelection(.enabled)
+        } else if !summary.topErrorGroups.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                ForEach(summary.topErrorGroups, id: \.message) { group in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("\(group.count.formatted())×")
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.6))
+                            .frame(minWidth: 50, alignment: .trailing)
+                        Text(group.message)
+                            .font(.system(size: 12))
+                            .foregroundStyle(.white.opacity(0.8))
+                            .lineLimit(2)
+                            .textSelection(.enabled)
+                    }
+                }
+                if summary.errorCount > summary.topErrorGroups.reduce(0, { $0 + $1.count }) {
+                    let shownTotal = summary.topErrorGroups.reduce(0) { $0 + $1.count }
+                    Text("…and \((summary.errorCount - shownTotal).formatted()) more")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .padding(.top, 2)
+                }
+                Text("Full log: ~/Library/Logs/MacClean/operations.log")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.45))
+                    .padding(.top, 4)
+                    .textSelection(.enabled)
+            }
+            .padding(.horizontal, 24)
+            .padding(.vertical, 12)
+            .background(.white.opacity(0.08))
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .padding(.horizontal, 24)
+        }
+    }
+
     private func cleaningView(progress: CleaningEngine.Progress) -> some View {
         VStack(spacing: 24) {
             Spacer()
@@ -246,20 +296,7 @@ struct ModuleContainerView: View {
                 // Console.app to find out it was a limit / permission /
                 // SafetyGuard issue. For multi-error cases, fall back to
                 // the count summary.
-                if summary.errorCount == 1, let msg = summary.firstErrorMessage {
-                    Text(msg)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.white.opacity(0.75))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                        .textSelection(.enabled)
-                } else {
-                    Text("\(summary.errorCount) error\(summary.errorCount == 1 ? "" : "s") during cleanup. Check Console for details.")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.white.opacity(0.65))
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 40)
-                }
+                cleanErrorDetail(for: summary)
             } else {
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 52))
