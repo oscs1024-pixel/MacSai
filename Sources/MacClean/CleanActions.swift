@@ -43,7 +43,16 @@ public enum CleanActions {
             }
         }
 
-        let trashResult = await engine.clean(items: trashItems, mode: .trash,
+        // Dedup ancestors/descendants before dispatch. Scanner emits both
+        // a directory AND every file inside it as separate items. Without
+        // this filter the engine trashes the directory in one move,
+        // then loops through every descendant — each of which now
+        // points at a path that no longer exists, producing
+        // "no such file" errors per descendant (one user reported 49,918
+        // of them on a single Smart Scan). Keep ancestors; drop anything
+        // whose URL lives under one.
+        let dedupedTrashItems = Self.prunedToParents(trashItems)
+        let trashResult = await engine.clean(items: dedupedTrashItems, mode: .trash,
                                              onProgress: onProgress)
         let thinResult = await thinSelectedBinaries(thinItems)
         return CleaningEngine.CleanResult(
@@ -107,7 +116,42 @@ public enum CleanActions {
         onProgress: (@Sendable (CleaningEngine.Progress) -> Void)? = nil
     ) async -> CleaningEngine.CleanResult {
         let filtered = items.filter { selectedItems.contains($0.url) }
-        return await engine.clean(items: filtered, mode: .trash,
+        let deduped = Self.prunedToParents(filtered)
+        return await engine.clean(items: deduped, mode: .trash,
                                   onProgress: onProgress)
+    }
+
+    /// Returns `items` with any FileItem whose URL is a strict descendant
+    /// of another FileItem's URL removed. Trashing the ancestor takes
+    /// the descendants with it; dispatching the descendants separately
+    /// just produces "no such file" errors once the parent's gone.
+    ///
+    /// O(n log n): sort by path length ascending, then sweep — for each
+    /// item, drop it iff any already-kept item's path is a prefix
+    /// (ending at a `/` boundary).
+    static func prunedToParents(_ items: [FileItem]) -> [FileItem] {
+        guard items.count > 1 else { return items }
+        let sorted = items.sorted {
+            $0.url.path(percentEncoded: false).count < $1.url.path(percentEncoded: false).count
+        }
+        var keptPaths: [String] = []
+        keptPaths.reserveCapacity(sorted.count)
+        var kept: [FileItem] = []
+        kept.reserveCapacity(sorted.count)
+        for item in sorted {
+            let path = item.url.path(percentEncoded: false)
+            // Look for an ancestor among already-kept paths. Boundary
+            // check on '/' prevents "/foo" matching "/foobar".
+            let hasAncestor = keptPaths.contains { ancestor in
+                path != ancestor &&
+                path.hasPrefix(ancestor) &&
+                (ancestor.hasSuffix("/") || path.dropFirst(ancestor.count).first == "/")
+            }
+            if !hasAncestor {
+                kept.append(item)
+                keptPaths.append(path)
+            }
+        }
+        return kept
     }
 }

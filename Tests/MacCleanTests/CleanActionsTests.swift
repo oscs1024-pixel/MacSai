@@ -227,4 +227,75 @@ final class CleanActionsTests: XCTestCase {
         XCTAssertEqual(result.removedCount, urls.count)
         XCTAssertEqual(result.freedBytes, expectedBytes)
     }
+
+    // MARK: - Spec: ancestor/descendant dedup
+    //
+    // The scanner returns both directories AND their descendants as
+    // separate items. Without dedup, the engine processes the directory
+    // first (trashing the whole subtree in one move), then loops through
+    // each descendant — each of which now points at a path that no
+    // longer exists. Result: thousands of "no such file" errors and
+    // freedBytes massively undercounted because the directory entry
+    // itself reports size 0 (totalFileAllocatedSize doesn't recurse
+    // into dirs).
+    //
+    // SPEC: when both a parent dir and its descendant are selected,
+    // only the parent dir should be sent to the engine. Trashing the
+    // parent takes the descendants with it.
+
+    func testCleanActions_dedupsDescendantsOfSelectedDirectories() async throws {
+        try await TestFixtures.withTempDir { home in
+            // Layout:
+            //   parent/
+            //     child1.txt
+            //     sub/
+            //       child2.txt
+            //   standalone.txt
+            let parent = home.appending(path: "parent")
+            let child1 = parent.appending(path: "child1.txt")
+            let sub = parent.appending(path: "sub")
+            let child2 = sub.appending(path: "child2.txt")
+            let standalone = home.appending(path: "standalone.txt")
+
+            try FileManager.default.createDirectory(at: sub, withIntermediateDirectories: true)
+            try Data("c1".utf8).write(to: child1)
+            try Data("c2".utf8).write(to: child2)
+            try Data("st".utf8).write(to: standalone)
+
+            // Build items as the scanner would — parent dir + every
+            // descendant + the standalone file. ALL selected.
+            let items = [
+                FileItem(url: parent, name: "parent", size: 0, allocatedSize: 0, isDirectory: true),
+                FileItem(url: child1, name: "child1.txt", size: 2, allocatedSize: 2, isDirectory: false),
+                FileItem(url: sub, name: "sub", size: 0, allocatedSize: 0, isDirectory: true),
+                FileItem(url: child2, name: "child2.txt", size: 2, allocatedSize: 2, isDirectory: false),
+                FileItem(url: standalone, name: "standalone.txt", size: 2, allocatedSize: 2, isDirectory: false),
+            ]
+            let result = await CleanActions.executeUserClean(
+                results: [ScanResult(category: .userCaches, items: items)],
+                selectedItems: Set(items.map(\.url)),
+                engine: CleaningEngine()
+            )
+
+            // SPEC: zero errors. The descendants of `parent` and `sub`
+            // never reach the engine, so no "no such file" failures
+            // from the parent-already-trashed race.
+            XCTAssertTrue(result.errors.isEmpty,
+                "dedup should eliminate the parent-trashed-before-child race; got: \(result.errors.map(\.error))")
+
+            // Filesystem reality: everything is gone.
+            for url in [parent, child1, sub, child2, standalone] {
+                XCTAssertFalse(
+                    FileManager.default.fileExists(atPath: url.path(percentEncoded: false)),
+                    "expected \(url.lastPathComponent) to be trashed"
+                )
+            }
+
+            // SPEC: removedCount reflects the post-dedup count (2 ops:
+            // trash parent, trash standalone), not the inflated pre-dedup
+            // count of 5. UI should show users an honest number.
+            XCTAssertEqual(result.removedCount, 2,
+                "expected 2 trash operations (parent + standalone); descendants ride along with parent")
+        }
+    }
 }
