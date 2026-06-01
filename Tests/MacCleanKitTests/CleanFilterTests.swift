@@ -109,6 +109,35 @@ final class CleanFilterTests: XCTestCase {
             [.posixPermissions: 0o755], ofItemAtPath: locked.path)
     }
 
+    // MARK: Selected-size estimate (must match what Clean actually frees)
+
+    func testSelectedSizeCountsEachURLOnce() {
+        // The same file can surface in two categories (large AND old) or —
+        // before scanner dedup — from overlapping scan targets. Clean
+        // trashes each path once, so the pre-clean estimate must dedupe by
+        // URL too; otherwise it over-reports ("2 GB will be freed" but only
+        // 934 MB actually freed).
+        let url = URL(filePath: "/tmp/big.dmg")
+        let item = FileItem(url: url, name: "big.dmg", size: 1000, allocatedSize: 1000, isDirectory: false)
+        let results: [ScanResult] = [
+            ScanResult(category: .largeFiles, items: [item]),
+            ScanResult(category: .oldFiles, items: [item]),
+        ]
+
+        XCTAssertEqual(results.selectedSize([url]), 1000,
+                       "a URL present in two results must count once")
+    }
+
+    func testSelectedSizeSumsDistinctSelectedItems() {
+        let a = FileItem(url: URL(filePath: "/tmp/a.bin"), name: "a", size: 100, allocatedSize: 100, isDirectory: false)
+        let b = FileItem(url: URL(filePath: "/tmp/b.bin"), name: "b", size: 250, allocatedSize: 250, isDirectory: false)
+        let c = FileItem(url: URL(filePath: "/tmp/c.bin"), name: "c", size: 999, allocatedSize: 999, isDirectory: false)
+        let results = [ScanResult(category: .largeFiles, items: [a, b, c])]
+
+        // Only a + b are selected.
+        XCTAssertEqual(results.selectedSize([a.url, b.url]), 350)
+    }
+
     func testFilesInsideUnwritableDirectoryAreNotCleanable() throws {
         // Even individual files inside an unwritable parent should be
         // dropped — this is what catches every leaf inside a root-owned
