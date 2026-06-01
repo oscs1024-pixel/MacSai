@@ -61,7 +61,12 @@ struct OnboardingView: View {
             }
             .padding(24)
         }
-        .frame(width: 600, height: 450)
+        // Was 600x450; the FDA step's full content (icon + title + body
+        // + 4 numbered steps + "Open System Settings" button) exceeded
+        // that and clipped the Back/Next buttons at the bottom of the
+        // sheet on real installs. 620 height gives every step room
+        // without becoming an empty-looking sheet on shorter steps.
+        .frame(width: 600, height: 620)
     }
 
     private var welcomeStep: some View {

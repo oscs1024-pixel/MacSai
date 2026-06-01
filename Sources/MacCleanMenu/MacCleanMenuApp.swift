@@ -1,8 +1,26 @@
 import SwiftUI
+import AppKit
 import MacCleanKit
 
 @main
 struct MacCleanMenuApp: App {
+    init() {
+        // Single-instance enforcement. macOS does NOT auto-deduplicate
+        // LSUIElement apps by bundle id the way it does for regular
+        // apps — and we have two launch paths (SMAppService at register
+        // time + NSWorkspace.openApplication from the main app's
+        // setEnabled). Either alone is fine, but in some macOS states
+        // both fire and the user ends up with two shields in the menu
+        // bar. Check on launch: if another instance with our bundle id
+        // is already running, terminate self immediately.
+        let myBundleID = Bundle.main.bundleIdentifier
+        let myPID = ProcessInfo.processInfo.processIdentifier
+        let duplicate = NSWorkspace.shared.runningApplications.contains {
+            $0.bundleIdentifier == myBundleID && $0.processIdentifier != myPID
+        }
+        if duplicate { exit(0) }
+    }
+
     @State private var statsCollector = SystemStatsCollector()
     @State private var networkMonitor = NetworkSpeedMonitor()
     @State private var devicesCollector = ConnectedDevicesCollector()

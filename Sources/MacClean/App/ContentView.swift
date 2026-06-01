@@ -3,9 +3,6 @@ import MacCleanKit
 
 struct ContentView: View {
     @Environment(AppState.self) private var appState
-    @AppStorage("showMenuBarWidget") private var showMenuBarWidget = true
-    @State private var launcher = MenuBarLauncher.shared
-    @State private var refreshTick = 0
 
     var body: some View {
         @Bindable var state = appState
@@ -32,28 +29,6 @@ struct ContentView: View {
         // (scripts/check-version-sync.sh) — drifting between the two
         // fails the build.
         .navigationSubtitle("v\(MCConstants.appVersion)")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                menuBarToggle
-            }
-        }
-        .id(refreshTick)
-    }
-
-    private var menuBarToggle: some View {
-        Toggle(isOn: $showMenuBarWidget) {
-            Label("Menu Bar", systemImage: showMenuBarWidget
-                  ? "menubar.dock.rectangle.badge.record"
-                  : "menubar.dock.rectangle")
-        }
-        .toggleStyle(.button)
-        .help(showMenuBarWidget
-              ? "Menu bar widget is on — click to hide it"
-              : "Menu bar widget is off — click to show it")
-        .onChange(of: showMenuBarWidget) { _, newValue in
-            launcher.setEnabled(newValue)
-            refreshTick &+= 1
-        }
     }
 
     @ViewBuilder
