@@ -32,10 +32,15 @@ struct MacCleanMenuApp: App {
             .onAppear { startPolling() }
             .onDisappear { stopPolling() }
         } label: {
+            // Label content must stay compact; the menu bar gives us
+            // very little horizontal space. Original was leaf + disk;
+            // we add the shield as a colored health indicator. Drop
+            // the leaf — the shield + the disk-free text are enough
+            // to make the widget recognizable and saves room for the
+            // text on narrow menu bars.
             HStack(spacing: 4) {
                 Image(systemName: shieldGlyph)
                     .foregroundStyle(shieldColor)
-                Image(systemName: "leaf.fill")
                 if let stats {
                     Text(FileSizeFormatter.format(stats.diskFree))
                         .font(.system(size: 11, design: .monospaced))
@@ -99,50 +104,54 @@ struct MenuContentView: View {
     let onDismissTip: (String) -> Void
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 12) {
-                HStack {
-                    Image(systemName: "leaf.fill")
-                        .foregroundStyle(.green)
-                    Text("Mac Clean")
-                        .font(.headline)
-                    Spacer()
-                }
-
-                Divider()
-
-                if let stats {
-                    statsSection(stats: stats)
-                    if !tips.isEmpty {
-                        Divider()
-                        tipsSection
-                    }
-                    if let p = protection {
-                        Divider()
-                        protectionSection(p)
-                    }
-                    if let d = devices, d.hasAny {
-                        Divider()
-                        devicesSection(d)
-                    }
-                } else {
-                    ProgressView("Loading...")
-                }
-
-                Divider()
-
-                Button("Open Mac Clean") {
-                    TipAction.open()
-                }
-
-                Button("Quit Monitor") {
-                    NSApplication.shared.terminate(nil)
-                }
+        // ScrollView inside MenuBarExtra(.window) collapses to ~0 height
+        // when given only a maxHeight constraint (the popover sizes to
+        // the ScrollView's idealSize, which is 0). Use a plain VStack
+        // sized by content; if a future power user with many external
+        // drives + tips overflows their screen, wrap THIS in a
+        // ScrollView with explicit height THEN.
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: "leaf.fill")
+                    .foregroundStyle(.green)
+                Text("Mac Clean")
+                    .font(.headline)
+                Spacer()
             }
-            .padding()
-            .frame(width: 320)
+
+            Divider()
+
+            if let stats {
+                statsSection(stats: stats)
+                if !tips.isEmpty {
+                    Divider()
+                    tipsSection
+                }
+                if let p = protection {
+                    Divider()
+                    protectionSection(p)
+                }
+                if let d = devices, d.hasAny {
+                    Divider()
+                    devicesSection(d)
+                }
+            } else {
+                ProgressView("Loading...")
+                    .frame(height: 80)
+            }
+
+            Divider()
+
+            Button("Open Mac Clean") {
+                TipAction.open()
+            }
+
+            Button("Quit Monitor") {
+                NSApplication.shared.terminate(nil)
+            }
         }
-        .frame(maxHeight: 600)
+        .padding()
+        .frame(width: 320)
     }
 
     @ViewBuilder
