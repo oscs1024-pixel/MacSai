@@ -232,13 +232,12 @@ struct MenuContentView: View {
         .glassCard()
     }
 
-    /// Card header: icon + label, pinned top-left (16pt inset comes from
-    /// the card's padding). Shared so every stat card aligns identically.
+    /// Card header: icon + label, centered horizontally above the ring
+    /// (no Spacer, so the VStack centers the group).
     private func statHeader(icon: String, label: String, tint: Color) -> some View {
         HStack(spacing: 6) {
             Image(systemName: icon).font(.system(size: 11, weight: .semibold)).foregroundStyle(tint)
             Text(label).font(.system(size: 12, weight: .semibold)).foregroundStyle(MenuPalette.textPrimary)
-            Spacer()
         }
     }
 
@@ -363,6 +362,12 @@ struct MenuContentView: View {
 
     private var footer: some View {
         HStack(spacing: 8) {
+            Button { NSApplication.shared.terminate(nil) } label: {
+                Image(systemName: "power").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
+                    .frame(width: 34, height: 32)
+                    .background(MenuPalette.red, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            }.buttonStyle(.plain).help("Quit Monitor")
+
             Button { TipAction.open() } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "leaf.fill").font(.system(size: 11, weight: .bold))
@@ -372,12 +377,6 @@ struct MenuContentView: View {
                 .frame(maxWidth: .infinity).padding(.vertical, 8)
                 .background(MenuPalette.green, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
             }.buttonStyle(.plain)
-
-            Button { NSApplication.shared.terminate(nil) } label: {
-                Image(systemName: "power").font(.system(size: 12, weight: .bold)).foregroundStyle(.white)
-                    .frame(width: 34, height: 32)
-                    .background(MenuPalette.red, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-            }.buttonStyle(.plain).help("Quit Monitor")
         }
     }
 
