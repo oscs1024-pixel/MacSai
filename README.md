@@ -12,7 +12,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/platform-macOS%2014%2B-blue?style=flat-square" alt="macOS 14+" />
   <img src="https://img.shields.io/badge/swift-6.0-orange?style=flat-square" alt="Swift 6" />
-  <img src="https://img.shields.io/badge/tests-275%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-403%20passing-brightgreen?style=flat-square" alt="Tests" />
   <img src="https://img.shields.io/badge/license-BSD--3--Clause-green?style=flat-square" alt="License" />
   <img src="https://img.shields.io/badge/security-audited-purple?style=flat-square" alt="Security" />
   <img src="https://img.shields.io/badge/PRs-welcome-ff69b4?style=flat-square" alt="PRs Welcome" />
@@ -44,22 +44,25 @@ Mac Clean is a **free, open-source** macOS app that cleans junk files, removes m
 
 ## How Mac Clean compares
 
-|  | Mac Clean | CleanMyMac | Pearcleaner | PureMac | OnyX |
-|---|:---:|:---:|:---:|:---:|:---:|
-| **Price** | Free | $39.95/yr | Free | Free | Free |
-| **Open source** | ✅ BSD-3 | ❌ | ✅ Fair-code | ✅ MIT | ❌ |
-| **Telemetry** | ❌ None | ⚠️ Yes | ❌ None | ❌ None | ❌ None |
-| **Smart Scan (one-click)** | ✅ | ✅ | ❌ | ➖ Partial | ❌ |
-| **System Junk (16 categories)** | ✅ | ✅ | ➖ | ✅ | ➖ Limited |
-| **Malware scanner** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Browser privacy cleaner** | ✅ | ✅ | ❌ | ❌ | ➖ |
-| **Uninstaller with leftover detection** | ✅ 10-level | ✅ | ✅ Focus | ❌ | ❌ |
-| **Disk treemap visualizer** | ✅ | ❌ | ❌ | ❌ | ❌ |
-| **Duplicate finder** | ✅ | ✅ | ❌ | ❌ | ❌ |
-| **Menu bar system monitor** | ✅ | ✅ Menu | ❌ | ❌ | ❌ |
-| **Maintenance scripts** | ✅ | ✅ | ❌ | ❌ | ✅ Strong |
-| **Notarized by Apple** | ❌ | ✅ | ✅ | ✅ | ✅ |
-| **macOS version** | 14+ | 13+ | 13+ | 13+ | varies |
+|  | Mac Clean | CleanMyMac | Pearcleaner | PureMac | OnyX | Mole |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Price** | Free | $39.95/yr | Free | Free | Free | Free (CLI) |
+| **Open source** | ✅ BSD-3 | ❌ | ✅ Fair-code | ✅ MIT | ❌ | ✅ MIT |
+| **Telemetry** | ❌ None | ⚠️ Yes | ❌ None | ❌ None | ❌ None | ❌ None |
+| **Native GUI app** | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ CLI (paid GUI separate) |
+| **Smart Scan (one-click)** | ✅ | ✅ | ❌ | ➖ Partial | ❌ | ➖ Interactive CLI |
+| **System Junk (16 categories)** | ✅ | ✅ | ➖ | ✅ | ➖ Limited | ✅ |
+| **Universal Binary thinning** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Malware scanner** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Browser privacy cleaner** | ✅ | ✅ | ❌ | ❌ | ➖ | ❌ |
+| **Uninstaller with leftover detection** | ✅ 10-level | ✅ | ✅ Focus | ❌ | ❌ | ✅ |
+| **Disk treemap visualizer** | ✅ | ❌ | ❌ | ❌ | ❌ | ➖ Analyzer |
+| **Duplicate finder** | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| **Menu bar system monitor** | ✅ | ✅ Menu | ❌ | ❌ | ❌ | ❌ |
+| **Maintenance scripts** | ✅ | ✅ | ❌ | ❌ | ✅ Strong | ➖ |
+| **In-app activity log viewer** | ✅ | ❌ | ❌ | ❌ | ❌ | N/A CLI |
+| **Notarized by Apple** | ❌ | ✅ | ✅ | ✅ | ✅ | N/A |
+| **macOS version** | 14+ | 13+ | 13+ | 13+ | varies | varies |
 
 > CleanMyMac is a great product — they deserve the revenue from users who want a polished, supported experience. Mac Clean is for everyone who'd rather have transparent source code and zero subscription.
 
@@ -69,7 +72,7 @@ Mac Clean is a **free, open-source** macOS app that cleans junk files, removes m
 | Module | Description |
 |--------|------------|
 | **Smart Scan** | One-click scan combining cleanup, protection, and performance analysis with live progress across 13 modules |
-| **System Junk** | 16 scan categories — user/system caches, logs, language files, broken preferences, broken login items, document versions, iOS backups, Xcode junk, universal binaries, deleted users, and more |
+| **System Junk** | 16 scan categories — user/system caches, logs, language files, broken preferences, broken login items, document versions, iOS backups, Xcode junk, **Universal Binary thinning** (detects fat Mach-O binaries with both arm64 and x86_64 slices and rewrites them to your native arch via `lipo`), deleted users, and more |
 | **Mail Attachments** | Find cached attachments from Apple Mail, Outlook, and Spark |
 | **Trash Bins** | Empty trash from all locations including external drives |
 
@@ -83,7 +86,7 @@ Mac Clean is a **free, open-source** macOS app that cleans junk files, removes m
 | Module | Description |
 |--------|------------|
 | **Optimization** | Manage login items and launch agents with enable/disable toggles |
-| **Maintenance** | 10 system tasks — free RAM, run maintenance scripts, repair permissions, rebuild Launch Services, reindex Spotlight, flush DNS, thin Time Machine snapshots |
+| **Maintenance** | 10 system tasks — free RAM, run maintenance scripts, repair permissions, rebuild Launch Services, reindex Spotlight, flush DNS, thin Time Machine snapshots. Tasks are tagged with severity (safe / disruptive) and "Run All" requires explicit confirmation; long-running tasks can be cancelled mid-flight |
 
 ### Applications
 | Module | Description |
@@ -99,13 +102,21 @@ Mac Clean is a **free, open-source** macOS app that cleans junk files, removes m
 | **Duplicates** | Progressive detection — size grouping → partial SHA-256 (4KB) → full hash → inode verification |
 | **Shredder** | Secure file erasure with standard, permanent, and secure overwrite modes |
 
-### Menu Bar Monitor
-Independent menu bar app with **real-time system stats**:
-- CPU load via `host_processor_info` (Mach API)
-- Memory pressure via `vm_statistics64`
-- Disk usage and health
-- Battery charge, health, cycle count, temperature
-- Network throughput via `getifaddrs`
+### Menu Bar Widget
+
+<p align="center">
+  <img src="assets/menu_bar.png" width="300" alt="Mac Clean menu bar widget" />
+</p>
+
+A glassmorphism menu bar widget that puts your Mac's vitals one click away — an independent process that launches at login and is toggled from the app's sidebar. No need to open the main window just to check in.
+
+- **Live stat rings** — CPU load, memory pressure, disk usage, and battery in a 2×2 ring grid (`host_processor_info`, `vm_statistics64`, APFS capacity, IOKit power source), color-graded green → amber → red
+- **Network, uptime & swap** — real-time up/down throughput, system uptime, and swap usage
+- **Recommendations** — actionable, dismissible tips ("User caches grew to 2.52 GB — run System Junk") with one-tap actions, suppressed for 30 days once dismissed
+- **Protection status** — last malware-scan time and threat count, color-coded by freshness
+- **Connected devices** — external volumes (with free space) and external displays at a glance
+- **Health alerts** — background notifications when disk runs critically low or memory pressure stays high (throttled, opt-in)
+- **One click to the app** — jump straight into Mac Clean
 
 ## Architecture
 
@@ -136,12 +147,16 @@ Mac Clean
 Mac Clean is designed to **never cause data loss**:
 
 - **Protected paths blocklist** — `/System`, `/usr`, `/bin`, `/sbin`, Apple system apps are untouchable
+- **macOS firmlink canonicalization** — `/var`↔`/private/var`, `/tmp`↔`/private/tmp`, `/etc`↔`/private/etc` resolved to a single canonical form so symlink-redirect detection doesn't false-positive on legitimate system paths
+- **Pre-scan cleanability filter** — items the current process couldn't trash (root-owned children of system caches, macOS data-vaulted dirs under `~/Library/Caches/com.apple.*`) are dropped at scan time so they never reach the UI as cleanable
 - **Trash-first deletion** — all removals go to Trash by default
 - **Dry-run mode** — preview what would be deleted without touching anything
 - **TOCTOU prevention** — symlinks re-resolved immediately before deletion
-- **10,000 file cap** — prevents runaway deletion operations
+- **Chunked cleanup** — large selections (50k+) prompt a confirmation modal; the engine splits the work into 5k-item chunks honoring `Task.isCancelled` between chunks so cancellation is responsive
+- **Recursive byte accounting** — directory size is walked instead of stat'd, so the "X freed" count on the completion screen reflects reality
 - **Orphan safety policy** — orphan cleanup restricted to caches/logs only
-- **Operation logging** — every action logged to `~/Library/Logs/MacClean/`
+- **In-app activity log viewer** — every error during clean is logged with full path; the post-clean screen has a "View Log" button that opens an in-app sheet with errors-only filter and copy-to-clipboard so you can paste a bug report verbatim. Logs auto-prune after 30 days
+- **Kernel-enforced XPC privilege gate** — the privileged helper uses `NSXPCListener.setCodeSigningRequirement` (macOS 13+) so the kernel itself rejects connections from any process whose code signature doesn't match the main app's identifier and team
 
 ## Installation
 
@@ -320,8 +335,8 @@ This means you can use, modify, and redistribute this code, but you **must**:
 
 Inspired by the open-source Mac utility community:
 - [Pearcleaner](https://github.com/alienator88/Pearcleaner) — app uninstaller patterns
-- [Mole](https://github.com/nicehash/Mole) — cleanup categories
-- [Tencent Lemon Cleaner](https://github.com/nicehash/Lemon) — modular architecture
+- [Mole](https://github.com/tw93/Mole) — cleanup categories
+- [Tencent Lemon Cleaner](https://github.com/Tencent/lemon-cleaner) — modular architecture
 - Squarified Treemap algorithm by Bruls, Huizing & van Wijk (2000)
 
 ---
