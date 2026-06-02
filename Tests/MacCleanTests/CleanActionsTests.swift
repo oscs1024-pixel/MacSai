@@ -25,6 +25,9 @@ import MacCleanTestSupport
 final class CleanActionsTests: XCTestCase {
 
     private var testDir: URL!
+    /// Files this test placed directly in the real ~/.Trash. Removed in
+    /// tearDown by exact path so a failing run never leaves litter behind.
+    private var trashTestArtifacts: [URL] = []
 
     override func setUpWithError() throws {
         // Each test gets its own subdir of user caches.
@@ -35,6 +38,10 @@ final class CleanActionsTests: XCTestCase {
 
     override func tearDownWithError() throws {
         try? FileManager.default.removeItem(at: testDir)
+        for url in trashTestArtifacts {
+            try? FileManager.default.removeItem(at: url)
+        }
+        trashTestArtifacts = []
     }
 
     // MARK: - Helpers
@@ -84,6 +91,47 @@ final class CleanActionsTests: XCTestCase {
         XCTAssertEqual(result.removedCount, 3)
         XCTAssertEqual(result.freedBytes, 600)
         XCTAssertTrue(result.errors.isEmpty)
+    }
+
+    // MARK: - Trash Bins: emptying must PERMANENTLY delete, not re-trash
+    //
+    // Bug (June 2026): TrashBins scan items already live in ~/.Trash.
+    // Routing them through `.trash` mode calls FileManager.trashItem on a
+    // file that's ALREADY in the Trash — a silent no-op that SUCCEEDS (so
+    // removedCount increments and the UI reports "cleaned N items, freed
+    // X bytes") while leaving the file exactly where it was. A rescan
+    // re-finds everything; the Trash is never actually emptied.
+    //
+    // SPEC: `.trashBins` items must be permanently removed (engine
+    // `.permanent` mode), so the file is genuinely gone from ~/.Trash.
+
+    func testTrashBins_permanentlyDeletesItemsAlreadyInTheTrash() async throws {
+        let trash = MCConstants.userTrash
+        try FileManager.default.createDirectory(at: trash, withIntermediateDirectories: true)
+
+        let name = "macclean-trashbins-test-\(UUID().uuidString).bin"
+        let url = trash.appending(path: name)
+        try Data(count: 256).write(to: url)
+        trashTestArtifacts.append(url)
+
+        XCTAssertTrue(exists(url), "precondition: throwaway file should be in ~/.Trash")
+
+        let item = FileItem(url: url, name: name, size: 256, allocatedSize: 256, isDirectory: false)
+        let results = [ScanResult(category: .trashBins, items: [item])]
+
+        let result = await CleanActions.executeUserClean(
+            results: results,
+            selectedItems: [url],
+            engine: CleaningEngine()
+        )
+
+        XCTAssertFalse(
+            exists(url),
+            "Emptying the Trash must PERMANENTLY remove the item from ~/.Trash. " +
+            "If this fails, TrashBins items are being re-trashed (a no-op) instead of deleted."
+        )
+        XCTAssertEqual(result.removedCount, 1)
+        XCTAssertTrue(result.errors.isEmpty, "unexpected errors: \(result.errors.map(\.error))")
     }
 
     // MARK: - Selection filtering: deselected items stay

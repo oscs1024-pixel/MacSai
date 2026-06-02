@@ -5,8 +5,13 @@ import MacCleanKit
 ///
 /// Every view that has a Clean button MUST route through here. By centralizing
 /// the call to `CleaningEngine` we guarantee:
-///   1. The mode is always `.trash` (files recoverable from Trash, never silently
-///      `.dryRun` which would report success without deleting anything).
+///   1. Deletion is never silently `.dryRun` (which would report success
+///      without touching the filesystem). Almost everything goes to `.trash`
+///      so it stays recoverable — the one exception is `.trashBins`, which
+///      is `.permanent`: those items are ALREADY in ~/.Trash, and
+///      `FileManager.trashItem` on an already-trashed file is a silent
+///      no-op (succeeds, but leaves the file in place), so emptying the
+///      Trash requires an actual `removeItem`.
 ///   2. Item-filtering logic (intersect scan results with user selection) is
 ///      identical across every module, so behavior can't drift per-view.
 ///   3. There's exactly one place to audit when reviewing the deletion path.
@@ -20,10 +25,14 @@ public enum CleanActions {
     /// Execute a user-initiated Clean operation against the given engine.
     /// Used by views that display `[ScanResult]` with per-item selection.
     ///
-    /// Routes by category: most items go through `engine.clean(..., .trash)`,
-    /// but `.universalBinaries` items are thinned in place via
-    /// `ThinBinaryOperation` instead — trashing an app's executable would
-    /// break the app.
+    /// Routes by category:
+    ///   - `.universalBinaries` items are thinned in place via
+    ///     `ThinBinaryOperation` — trashing an app's executable would break it.
+    ///   - `.trashBins` items are deleted with `.permanent` mode: they already
+    ///     live in ~/.Trash, where re-trashing them is a no-op, so emptying the
+    ///     Trash means actually removing them.
+    ///   - everything else goes through `engine.clean(..., .trash)` so it stays
+    ///     recoverable from the Trash.
     @discardableResult
     public static func executeUserClean(
         results: [ScanResult],
@@ -32,12 +41,16 @@ public enum CleanActions {
         onProgress: (@Sendable (CleaningEngine.Progress) -> Void)? = nil
     ) async -> CleaningEngine.CleanResult {
         var trashItems: [FileItem] = []
+        var permanentItems: [FileItem] = []
         var thinItems: [FileItem] = []
         for result in results {
             for item in result.items where selectedItems.contains(item.url) {
-                if result.category == .universalBinaries {
+                switch result.category {
+                case .universalBinaries:
                     thinItems.append(item)
-                } else {
+                case .trashBins:
+                    permanentItems.append(item)
+                default:
                     trashItems.append(item)
                 }
             }
@@ -50,16 +63,26 @@ public enum CleanActions {
         // points at a path that no longer exists, producing
         // "no such file" errors per descendant (one user reported 49,918
         // of them on a single Smart Scan). Keep ancestors; drop anything
-        // whose URL lives under one.
+        // whose URL lives under one. Applies equally to the permanent
+        // (empty-Trash) path, where removeItem on the parent takes its
+        // subtree with it.
         let dedupedTrashItems = Self.prunedToParents(trashItems)
+        let dedupedPermanentItems = Self.prunedToParents(permanentItems)
+
+        // In practice a single view supplies items of one kind (the Trash
+        // Bins view is all `.trashBins`; every other view has none), so at
+        // most one of these two engine calls does real work — wiring
+        // onProgress to both is safe and never double-drives the bar.
         let trashResult = await engine.clean(items: dedupedTrashItems, mode: .trash,
                                              onProgress: onProgress)
+        let permanentResult = await engine.clean(items: dedupedPermanentItems, mode: .permanent,
+                                                 onProgress: onProgress)
         let thinResult = await thinSelectedBinaries(thinItems)
         return CleaningEngine.CleanResult(
-            removedCount: trashResult.removedCount + thinResult.removedCount,
-            freedBytes: trashResult.freedBytes + thinResult.freedBytes,
-            errors: trashResult.errors + thinResult.errors,
-            skippedCount: trashResult.skippedCount + thinResult.skippedCount
+            removedCount: trashResult.removedCount + permanentResult.removedCount + thinResult.removedCount,
+            freedBytes: trashResult.freedBytes + permanentResult.freedBytes + thinResult.freedBytes,
+            errors: trashResult.errors + permanentResult.errors + thinResult.errors,
+            skippedCount: trashResult.skippedCount + permanentResult.skippedCount + thinResult.skippedCount
         )
     }
 

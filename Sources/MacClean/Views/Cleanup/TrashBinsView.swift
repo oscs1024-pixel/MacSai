@@ -33,7 +33,8 @@ struct TrashBinsView: View {
             onClean: clean,
             onCancelClean: { cleanTask?.cancel() },
             onReset: reset,
-            onGrantAccess: { PermissionManager.shared.openFullDiskAccessSettings() }
+            onGrantAccess: { PermissionManager.shared.openFullDiskAccessSettings() },
+            confirmEmptyTrash: true
         )
     }
 

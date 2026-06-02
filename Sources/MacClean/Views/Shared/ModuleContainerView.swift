@@ -33,6 +33,11 @@ struct ModuleContainerView: View {
     /// Opens System Settings → Full Disk Access. Required when
     /// `permissionDenied` can be true; the empty-state button calls it.
     let onGrantAccess: (() -> Void)?
+    /// When true, the Clean button ALWAYS shows an irreversible
+    /// "Empty the Trash?" confirmation, regardless of selection size.
+    /// Used only by the Trash Bins module, whose Clean permanently
+    /// deletes (it empties ~/.Trash) rather than moving items to the Trash.
+    let confirmEmptyTrash: Bool
 
     init(
         title: String,
@@ -52,7 +57,8 @@ struct ModuleContainerView: View {
         onClean: @escaping () -> Void,
         onCancelClean: (() -> Void)? = nil,
         onReset: @escaping () -> Void,
-        onGrantAccess: (() -> Void)? = nil
+        onGrantAccess: (() -> Void)? = nil,
+        confirmEmptyTrash: Bool = false
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -72,9 +78,11 @@ struct ModuleContainerView: View {
         self.onCancelClean = onCancelClean
         self.onReset = onReset
         self.onGrantAccess = onGrantAccess
+        self.confirmEmptyTrash = confirmEmptyTrash
     }
 
     @State private var showLargeSelectionConfirm = false
+    @State private var showEmptyTrashConfirm = false
     @State private var showActivityLog = false
 
     private var totalSelected: UInt64 {
@@ -280,7 +288,10 @@ struct ModuleContainerView: View {
                     .foregroundStyle(.white)
                 Spacer()
                 Button("Clean") {
-                    if selectedCount > MCConstants.cleanConfirmationThreshold {
+                    if confirmEmptyTrash {
+                        // Trash Bins: permanent + irreversible — always confirm.
+                        showEmptyTrashConfirm = true
+                    } else if selectedCount > MCConstants.cleanConfirmationThreshold {
                         showLargeSelectionConfirm = true
                     } else {
                         onClean()
@@ -297,7 +308,9 @@ struct ModuleContainerView: View {
                     .opacity(selectedCount == 0 ? 0.5 : 1.0)
                     .help(selectedCount == 0
                           ? "Check at least one item to clean"
-                          : "Move \(selectedCount) item(s) to Trash")
+                          : confirmEmptyTrash
+                            ? "Permanently delete \(selectedCount) item(s) from the Trash"
+                            : "Move \(selectedCount) item(s) to Trash")
                     .alert(
                         "Clean \(selectedCount.formatted()) items?",
                         isPresented: $showLargeSelectionConfirm
@@ -306,6 +319,18 @@ struct ModuleContainerView: View {
                         Button("Continue", role: .destructive) { onClean() }
                     } message: {
                         Text("That's about \(formattedSelectedSize) of data and may take several minutes. You can cancel mid-cleanup.")
+                    }
+                    // Trash Bins empties ~/.Trash permanently — there is no
+                    // recovery, so this confirmation fires on every Empty
+                    // regardless of how many items are selected.
+                    .alert(
+                        "Empty the Trash?",
+                        isPresented: $showEmptyTrashConfirm
+                    ) {
+                        Button("Cancel", role: .cancel) { }
+                        Button("Empty Trash", role: .destructive) { onClean() }
+                    } message: {
+                        Text("This permanently deletes \(selectedCount.formatted()) item\(selectedCount == 1 ? "" : "s") (\(formattedSelectedSize)) and cannot be undone.")
                     }
             }
             .padding(.horizontal, 24)
