@@ -1,0 +1,138 @@
+import Foundation
+import AppKit
+import ServiceManagement
+import MacCleanKit
+
+/// Registers / unregisters the menu bar widget as a login item via
+/// `SMAppService.loginItem(identifier:)`. The identifier is the bundle id
+/// of the helper app embedded at
+/// `Mac Clean.app/Contents/Library/LoginItems/MacCleanMenu.app/`. macOS
+/// looks at that exact path to find the helper, so the bundling in
+/// `scripts/build-dmg.sh` must match.
+///
+/// On registration the system launches the helper immediately (no need
+/// to call NSWorkspace.open). On unregister the helper is also stopped.
+/// State is queryable via `status` so the Settings toggle can reflect
+/// the truth of "is the widget actually running right now."
+@MainActor
+@Observable
+public final class MenuBarLauncher {
+    public enum LauncherError: Error, LocalizedError {
+        case registrationFailed(String)
+        case unregisterFailed(String)
+
+        public var errorDescription: String? {
+            switch self {
+            case .registrationFailed(let msg):
+                return "Couldn't enable the menu bar widget: \(msg)"
+            case .unregisterFailed(let msg):
+                return "Couldn't disable the menu bar widget: \(msg)"
+            }
+        }
+    }
+
+    public static let shared = MenuBarLauncher()
+
+    public private(set) var lastError: LauncherError?
+
+    private let service = SMAppService.loginItem(identifier: MCConstants.menuBundleIdentifier)
+
+    public var isRegistered: Bool {
+        service.status == .enabled
+    }
+
+    public var status: SMAppService.Status {
+        service.status
+    }
+
+    private init() {}
+
+    public func register() throws {
+        do {
+            try service.register()
+            lastError = nil
+        } catch {
+            let wrapped = LauncherError.registrationFailed(error.localizedDescription)
+            lastError = wrapped
+            throw wrapped
+        }
+    }
+
+    public func unregister() throws {
+        do {
+            try service.unregister()
+            lastError = nil
+        } catch {
+            let wrapped = LauncherError.unregisterFailed(error.localizedDescription)
+            lastError = wrapped
+            throw wrapped
+        }
+    }
+
+    /// Best-effort enable; swallows errors so app launch can't be
+    /// blocked by a Settings-level "show in menu bar" preference flip
+    /// going sideways. The error surfaces via `lastError` and the
+    /// Settings UI can prompt the user to retry.
+    ///
+    /// Two-step on enable:
+    ///   1. SMAppService.register() — auto-start at login (the "real"
+    ///      reason for the API).
+    ///   2. NSWorkspace.openApplication() — launch the helper NOW.
+    ///
+    /// Step 2 exists because SMAppService is finicky with ad-hoc
+    /// signed builds (the path Homebrew users get). It can return
+    /// `.enabled` from `register()` without macOS actually launching
+    /// the helper — the system intends to launch it at next login
+    /// but won't kick it off in the current session. We want the
+    /// widget visible the moment the toggle flips, so we kick it
+    /// directly via NSWorkspace. Idempotent: skips if already running.
+    public func setEnabled(_ enabled: Bool) {
+        if enabled {
+            try? register()
+            launchHelperIfNotRunning()
+        } else {
+            try? unregister()
+            terminateRunningHelper()
+        }
+    }
+
+    /// Path to the bundled `MacCleanMenu.app` helper. Returns `nil`
+    /// when running under `swift run` (no .app wrapper around us),
+    /// which is fine — dev workflow is `swift run MacCleanMenu`
+    /// directly.
+    public func helperAppURL() -> URL? {
+        let helper = Bundle.main.bundleURL
+            .appending(path: "Contents")
+            .appending(path: "Library")
+            .appending(path: "LoginItems")
+            .appending(path: "MacCleanMenu.app")
+        guard FileManager.default.fileExists(atPath: helper.path) else { return nil }
+        return helper
+    }
+
+    private func isHelperRunning() -> Bool {
+        NSWorkspace.shared.runningApplications.contains {
+            $0.bundleIdentifier == MCConstants.menuBundleIdentifier
+        }
+    }
+
+    private func launchHelperIfNotRunning() {
+        guard !isHelperRunning(), let url = helperAppURL() else { return }
+        let config = NSWorkspace.OpenConfiguration()
+        config.activates = false   // Don't steal focus from the main app
+        config.hides = false
+        NSWorkspace.shared.openApplication(at: url, configuration: config) { [weak self] _, error in
+            guard let self, let error else { return }
+            Task { @MainActor in
+                self.lastError = .registrationFailed(error.localizedDescription)
+            }
+        }
+    }
+
+    private func terminateRunningHelper() {
+        for app in NSWorkspace.shared.runningApplications
+        where app.bundleIdentifier == MCConstants.menuBundleIdentifier {
+            app.terminate()
+        }
+    }
+}

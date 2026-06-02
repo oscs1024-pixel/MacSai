@@ -71,4 +71,22 @@ public extension Array where Element == ScanResult {
             )
         }
     }
+
+    /// On-disk size of the user's current selection, counting each URL
+    /// exactly once. The same file can appear in more than one category
+    /// (a file that's both "large" and "old") — and Clean trashes each
+    /// path only once — so summing per-item would over-report the estimate
+    /// versus what actually gets freed. Dedupe by URL to keep the
+    /// "X will be freed" preview honest.
+    func selectedSize(_ selected: Set<URL>) -> UInt64 {
+        var counted = Set<URL>()
+        var total: UInt64 = 0
+        for result in self {
+            for item in result.items
+            where selected.contains(item.url) && counted.insert(item.url).inserted {
+                total += item.size
+            }
+        }
+        return total
+    }
 }

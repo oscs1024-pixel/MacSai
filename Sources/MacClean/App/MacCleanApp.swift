@@ -6,6 +6,8 @@ struct MacCleanApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var appState = AppState()
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @AppStorage("showMenuBarWidget") private var showMenuBarWidget = true
+    @AppStorage("menuBarFirstLaunchDone") private var menuBarFirstLaunchDone = false
     @State private var showOnboarding = false
 
     var body: some Scene {
@@ -21,10 +23,30 @@ struct MacCleanApp: App {
                         showOnboarding = true
                         hasCompletedOnboarding = true
                     }
+                    syncMenuBarOnLaunch()
                 }
         }
         .windowStyle(.titleBar)
         .defaultSize(width: 960, height: 620)
+
+        Settings {
+            SettingsView()
+        }
+    }
+
+    /// First-launch default: ON (per product decision). On every launch
+    /// we re-sync the SMAppService state with the preference so the
+    /// truth of "is the helper actually running" matches the toggle —
+    /// macOS occasionally drops registrations after updates, especially
+    /// when the helper bundle path changes (which it doesn't here, but
+    /// re-registering is cheap and idempotent).
+    private func syncMenuBarOnLaunch() {
+        if !menuBarFirstLaunchDone {
+            menuBarFirstLaunchDone = true
+            // showMenuBarWidget already defaults to true; setEnabled is
+            // idempotent if already registered.
+        }
+        MenuBarLauncher.shared.setEnabled(showMenuBarWidget)
     }
 }
 

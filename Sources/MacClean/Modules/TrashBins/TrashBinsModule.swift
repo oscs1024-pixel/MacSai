@@ -11,6 +11,25 @@ public struct TrashBinsModule: ScanModule {
     public init() {}
 
     public func scan() async -> [ScanResult] {
+        await scanReportingPermissions().results
+    }
+
+    /// Same scan as `scan()`, but also reports whether the Trash came back
+    /// empty because Full Disk Access is missing (macOS blocks reading
+    /// `~/.Trash` without it, and the enumerator silently yields nothing).
+    /// The Trash view uses this to show a "Grant Full Disk Access" prompt
+    /// instead of a false "Trash is empty."
+    public func scanReportingPermissions() async -> (results: [ScanResult], permissionDenied: Bool) {
+        let outcome = await scanner.scanReportingPermissions(targets: Self.targets())
+        guard !outcome.items.isEmpty else {
+            return ([], outcome.permissionDenied)
+        }
+        let results = [ScanResult(category: .trashBins, items: outcome.items)]
+            .filteringUncleanable()
+        return (results, outcome.permissionDenied)
+    }
+
+    private static func targets() -> [ScanTarget] {
         var targets: [ScanTarget] = [
             // Main user trash
             ScanTarget(path: MCConstants.userTrash, recursive: true),
@@ -28,11 +47,6 @@ public struct TrashBinsModule: ScanModule {
                 }
             }
         }
-
-        let items = await scanner.scan(targets: targets)
-        guard !items.isEmpty else { return [] }
-
-        return [ScanResult(category: .trashBins, items: items)]
-            .filteringUncleanable()
+        return targets
     }
 }

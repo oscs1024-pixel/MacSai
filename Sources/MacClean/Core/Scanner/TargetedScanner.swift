@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 import MacCleanKit
 
 // `ScanTarget` moved to MacCleanKit for testability — see MacCleanKit/ScanTarget.swift.
@@ -15,8 +16,21 @@ public actor TargetedScanner {
     public init() {}
 
     public func scan(targets: [ScanTarget]) async -> [FileItem] {
+        await scanReportingPermissions(targets: targets).items
+    }
+
+    /// Like `scan(targets:)` but also reports which target roots were
+    /// unreadable due to a permission/TCC denial. Use this when the caller
+    /// needs to tell "found nothing" apart from "blocked by missing Full
+    /// Disk Access" (e.g. the Trash module — see `ScanOutcome`).
+    ///
+    /// Items are de-duplicated by URL across targets: overlapping targets
+    /// (e.g. `~` recursive *and* `~/Downloads` recursive) otherwise emit the
+    /// same file twice, which surfaced as duplicate UI rows and a
+    /// double-counted size estimate.
+    public func scanReportingPermissions(targets: [ScanTarget]) async -> ScanOutcome {
         let keys = resourceKeys
-        return await withTaskGroup(of: [FileItem].self) { group in
+        return await withTaskGroup(of: (items: [FileItem], deniedPath: URL?).self) { group in
             for target in targets {
                 group.addTask {
                     Self.scanTarget(target, keys: keys)
@@ -24,18 +38,44 @@ public actor TargetedScanner {
             }
 
             var allItems: [FileItem] = []
-            for await items in group {
-                allItems.append(contentsOf: items)
+            var seenURLs = Set<URL>()
+            var deniedPaths: [URL] = []
+            for await result in group {
+                for item in result.items where seenURLs.insert(item.url).inserted {
+                    allItems.append(item)
+                }
+                if let denied = result.deniedPath {
+                    deniedPaths.append(denied)
+                }
             }
-            return allItems
+            return ScanOutcome(items: allItems, permissionDeniedPaths: deniedPaths)
         }
     }
 
-    private static func scanTarget(_ target: ScanTarget, keys: [URLResourceKey]) -> [FileItem] {
+    /// True if `url` exists as a directory whose contents can't be read
+    /// because of a permission/TCC denial (EPERM/EACCES). `open` faithfully
+    /// reproduces what enumeration would hit — and unlike enumeration, it
+    /// surfaces the errno instead of silently yielding nothing. O(1): no
+    /// directory listing. Returns false for readable dirs and for paths
+    /// that don't exist / aren't directories.
+    private static func isPermissionDenied(_ url: URL) -> Bool {
+        let fd = open(url.path(percentEncoded: false), O_RDONLY | O_DIRECTORY)
+        if fd >= 0 { close(fd); return false }
+        return errno == EPERM || errno == EACCES
+    }
+
+    private static func scanTarget(_ target: ScanTarget, keys: [URLResourceKey]) -> (items: [FileItem], deniedPath: URL?) {
         let fm = FileManager.default
 
         guard fm.fileExists(atPath: target.path.path(percentEncoded: false)) else {
-            return []
+            return ([], nil)
+        }
+
+        // The enumerator/`contentsOfDirectory` below swallow EPERM and just
+        // yield nothing, so probe readability up front to distinguish a
+        // permission denial from a genuinely empty directory.
+        if isPermissionDenied(target.path) {
+            return ([], target.path)
         }
 
         var results: [FileItem] = []
@@ -45,7 +85,7 @@ public actor TargetedScanner {
                 at: target.path,
                 includingPropertiesForKeys: keys,
                 options: [.skipsPackageDescendants]
-            ) else { return [] }
+            ) else { return ([], nil) }
 
             while let obj = enumerator.nextObject() {
                 if Task.isCancelled { break }
@@ -81,7 +121,7 @@ public actor TargetedScanner {
             guard let contents = try? fm.contentsOfDirectory(
                 at: target.path,
                 includingPropertiesForKeys: keys
-            ) else { return [] }
+            ) else { return ([], nil) }
 
             for fileURL in contents {
                 if Task.isCancelled { break }
@@ -92,7 +132,7 @@ public actor TargetedScanner {
             }
         }
 
-        return results
+        return (results, nil)
     }
 
     private static func matchesExcludePattern(url: URL, target: ScanTarget) -> Bool {

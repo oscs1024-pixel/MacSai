@@ -21,10 +21,18 @@ struct ModuleContainerView: View {
     /// this window. nil means "no clean in flight" — either before any
     /// clean or after one finishes (then `completion` takes over).
     let cleaning: CleaningEngine.Progress?
+    /// True when the scan came back empty because a target couldn't be read
+    /// (Full Disk Access not granted) rather than because there was nothing
+    /// to clean. Drives the "Grant Full Disk Access" empty-state instead of
+    /// the misleading "nothing to clean up" one.
+    let permissionDenied: Bool
     let onScan: () -> Void
     let onClean: () -> Void
     let onCancelClean: (() -> Void)?
     let onReset: () -> Void
+    /// Opens System Settings → Full Disk Access. Required when
+    /// `permissionDenied` can be true; the empty-state button calls it.
+    let onGrantAccess: (() -> Void)?
 
     init(
         title: String,
@@ -39,10 +47,12 @@ struct ModuleContainerView: View {
         scanComplete: Bool = false,
         completion: CleanSummary? = nil,
         cleaning: CleaningEngine.Progress? = nil,
+        permissionDenied: Bool = false,
         onScan: @escaping () -> Void,
         onClean: @escaping () -> Void,
         onCancelClean: (() -> Void)? = nil,
-        onReset: @escaping () -> Void
+        onReset: @escaping () -> Void,
+        onGrantAccess: (() -> Void)? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -56,19 +66,22 @@ struct ModuleContainerView: View {
         self.scanComplete = scanComplete
         self.completion = completion
         self.cleaning = cleaning
+        self.permissionDenied = permissionDenied
         self.onScan = onScan
         self.onClean = onClean
         self.onCancelClean = onCancelClean
         self.onReset = onReset
+        self.onGrantAccess = onGrantAccess
     }
 
     @State private var showLargeSelectionConfirm = false
     @State private var showActivityLog = false
 
     private var totalSelected: UInt64 {
-        results.flatMap(\.items)
-            .filter { selectedItems.contains($0.url) }
-            .reduce(0) { $0 + $1.size }
+        // Dedupe by URL: a file can appear in two categories (large + old)
+        // and Clean trashes it once, so summing per-item would over-report
+        // versus what actually gets freed.
+        results.selectedSize(selectedItems)
     }
 
     private var selectedCount: Int {
@@ -90,7 +103,11 @@ struct ModuleContainerView: View {
             } else if isScanning {
                 scanningView
             } else if scanComplete {
-                emptyResultsView
+                if permissionDenied {
+                    permissionDeniedView
+                } else {
+                    emptyResultsView
+                }
             } else {
                 idleView
             }
@@ -215,6 +232,43 @@ struct ModuleContainerView: View {
                 .buttonStyle(.bordered)
                 .tint(.white)
                 .controlSize(.large)
+            Spacer()
+        }
+    }
+
+    /// Shown when the scan came back empty only because macOS blocked the
+    /// read (Full Disk Access not granted). Without this the user saw
+    /// "nothing to clean up" over a Trash that was actually full.
+    private var permissionDeniedView: some View {
+        VStack(spacing: 18) {
+            Spacer()
+            Image(systemName: "lock.fill")
+                .font(.system(size: 52))
+                .foregroundStyle(.white.opacity(0.9))
+            Text("Full Disk Access needed")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(.white)
+            Text("macOS is blocking access to this location. Grant Mac Clean Full Disk Access, then scan again.")
+                .font(.system(size: 13))
+                .foregroundStyle(.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 360)
+            HStack(spacing: 10) {
+                if let onGrantAccess {
+                    Button("Open Settings") { onGrantAccess() }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.white)
+                        .controlSize(.large)
+                }
+                Button("Rescan") { onScan() }
+                    .buttonStyle(.bordered)
+                    .tint(.white)
+                    .controlSize(.large)
+                Button("Done") { onReset() }
+                    .buttonStyle(.bordered)
+                    .tint(.white)
+                    .controlSize(.large)
+            }
             Spacer()
         }
     }
