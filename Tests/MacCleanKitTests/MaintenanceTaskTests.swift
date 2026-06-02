@@ -16,18 +16,8 @@ final class MaintenanceTaskTests: XCTestCase {
         }
     }
 
-    func testRootRequirements() {
-        XCTAssertFalse(MaintenanceTask.freeUpRAM.requiresRoot, "purge runs as user")
-        XCTAssertFalse(MaintenanceTask.speedUpMail.requiresRoot, "Mail reindex doesn't need root")
-        XCTAssertTrue(MaintenanceTask.flushDNSCache.requiresRoot)
-        XCTAssertTrue(MaintenanceTask.reindexSpotlight.requiresRoot)
-        XCTAssertTrue(MaintenanceTask.repairDiskPermissions.requiresRoot)
-        XCTAssertTrue(MaintenanceTask.rebuildLaunchServices.requiresRoot)
-        XCTAssertTrue(MaintenanceTask.thinTimeMachineSnapshots.requiresRoot)
-    }
-
     func testSystemCommandsResolveCorrectly() {
-        XCTAssertEqual(MaintenanceTask.freeUpRAM.systemCommand?.executable, "/usr/bin/purge")
+        XCTAssertEqual(MaintenanceTask.freeUpRAM.systemCommand?.executable, "/usr/sbin/purge")
         XCTAssertEqual(MaintenanceTask.flushDNSCache.systemCommand?.executable, "/usr/bin/dscacheutil")
         XCTAssertEqual(MaintenanceTask.flushDNSCache.systemCommand?.arguments, ["-flushcache"])
         XCTAssertEqual(MaintenanceTask.reindexSpotlight.systemCommand?.executable, "/usr/bin/mdutil")

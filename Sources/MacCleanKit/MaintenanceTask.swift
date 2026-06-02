@@ -117,10 +117,18 @@ public enum MaintenanceTask: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    public var requiresRoot: Bool {
+    /// True for tasks whose command needs root (purge, periodic, …). The
+    /// executor runs these via the standard macOS admin-auth prompt
+    /// (`do shell script … with administrator privileges`) so they actually
+    /// execute, instead of failing as a plain unprivileged `Process`.
+    public var requiresAdmin: Bool {
         switch self {
-        case .freeUpRAM, .speedUpMail: false
-        default: true
+        case .freeUpRAM, .runMaintenanceScripts, .repairDiskPermissions,
+             .verifyStartupDisk, .thinTimeMachineSnapshots:
+            true
+        case .freeUpPurgeableSpace, .speedUpMail, .rebuildLaunchServices,
+             .reindexSpotlight, .flushDNSCache:
+            false
         }
     }
 
@@ -131,7 +139,7 @@ public enum MaintenanceTask: String, CaseIterable, Identifiable, Sendable {
     public var systemCommand: (executable: String, arguments: [String])? {
         switch self {
         case .freeUpRAM:
-            ("/usr/bin/purge", [])
+            ("/usr/sbin/purge", [])
         case .freeUpPurgeableSpace:
             ("/usr/sbin/diskutil", ["apfs", "listSnapshots", "/"])
         case .runMaintenanceScripts:
