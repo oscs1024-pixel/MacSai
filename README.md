@@ -12,7 +12,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/platform-macOS%2014%2B-blue?style=flat-square" alt="macOS 14+" />
   <img src="https://img.shields.io/badge/swift-6.0-orange?style=flat-square" alt="Swift 6" />
-  <img src="https://img.shields.io/badge/tests-388%20passing-brightgreen?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-403%20passing-brightgreen?style=flat-square" alt="Tests" />
   <img src="https://img.shields.io/badge/license-BSD--3--Clause-green?style=flat-square" alt="License" />
   <img src="https://img.shields.io/badge/security-audited-purple?style=flat-square" alt="Security" />
   <img src="https://img.shields.io/badge/PRs-welcome-ff69b4?style=flat-square" alt="PRs Welcome" />
@@ -102,13 +102,21 @@ Mac Clean is a **free, open-source** macOS app that cleans junk files, removes m
 | **Duplicates** | Progressive detection — size grouping → partial SHA-256 (4KB) → full hash → inode verification |
 | **Shredder** | Secure file erasure with standard, permanent, and secure overwrite modes |
 
-### Menu Bar Monitor
-Independent menu bar app with **real-time system stats**:
-- CPU load via `host_processor_info` (Mach API)
-- Memory pressure via `vm_statistics64`
-- Disk usage and health
-- Battery charge, health, cycle count, temperature
-- Network throughput via `getifaddrs`
+### Menu Bar Widget
+
+<p align="center">
+  <img src="assets/menu_bar.png" width="300" alt="Mac Clean menu bar widget" />
+</p>
+
+A glassmorphism menu bar widget that puts your Mac's vitals one click away — an independent process that launches at login and is toggled from the app's sidebar. No need to open the main window just to check in.
+
+- **Live stat rings** — CPU load, memory pressure, disk usage, and battery in a 2×2 ring grid (`host_processor_info`, `vm_statistics64`, APFS capacity, IOKit power source), color-graded green → amber → red
+- **Network, uptime & swap** — real-time up/down throughput, system uptime, and swap usage
+- **Recommendations** — actionable, dismissible tips ("User caches grew to 2.52 GB — run System Junk") with one-tap actions, suppressed for 30 days once dismissed
+- **Protection status** — last malware-scan time and threat count, color-coded by freshness
+- **Connected devices** — external volumes (with free space) and external displays at a glance
+- **Health alerts** — background notifications when disk runs critically low or memory pressure stays high (throttled, opt-in)
+- **One click to the app** — jump straight into Mac Clean
 
 ## Architecture
 
