@@ -56,9 +56,113 @@ public enum DuplicateDetection {
     }
 
     /// From the final groups of true duplicates, pick the "items to delete":
-    /// keep one (the first) in each group as the original, mark the rest
-    /// as duplicates the user could remove.
+    /// keep ONE original in each group (chosen by `chooseOriginal`) and mark
+    /// the rest as deletable. The original is never included in the result, so
+    /// every duplicate set always keeps at least one copy on disk — the user
+    /// can never wipe the last copy, even by selecting everything.
     public static func extractDeletableDuplicates(_ groups: [[FileItem]]) -> [FileItem] {
-        groups.flatMap { Array($0.dropFirst()) }
+        groups.flatMap { group -> [FileItem] in
+            guard group.count > 1 else { return [] }
+            let original = chooseOriginal(group)
+            return group.filter { $0.url != original.url }
+        }
+    }
+
+    // MARK: - Choosing which copy to keep
+
+    /// Path fragments that mark a copy as a throwaway/derived duplicate rather
+    /// than the canonical original. Matched case-insensitively against the full
+    /// path. When a set has both a "plain" copy and a backup/`copy`/numbered
+    /// copy, we keep the plain one and offer the rest for removal — so users
+    /// don't lose the file they actually work from.
+    private static let backupMarkers: [String] = [
+        "backup", "/.trash/", " copy", "(copy", " 2.", " (1)", " (2)", " (3)",
+    ]
+
+    /// Heuristic: does this path look like a backup / duplicated copy rather
+    /// than an original? Used only to *prefer keeping* the non-backup; it never
+    /// causes deletion on its own.
+    public static func isLikelyBackupCopy(_ url: URL) -> Bool {
+        let path = url.path(percentEncoded: false).lowercased()
+        return backupMarkers.contains { path.contains($0) }
+    }
+
+    /// Pick the single copy to KEEP from a duplicate set. Preference order,
+    /// each tier breaking ties for the next:
+    ///   1. Not a backup/copy-looking path (keep the real one).
+    ///   2. Shallowest path (originals usually live in a primary location;
+    ///      copies get buried deeper, e.g. `…/Desktop/old/…`).
+    ///   3. Oldest (the original predates the copies made from it).
+    ///   4. Lexicographically smallest path — a deterministic final tiebreak
+    ///      so results are stable across runs and across machines.
+    ///
+    /// `group` must be non-empty (callers only pass sets of size > 1).
+    public static func chooseOriginal(_ group: [FileItem]) -> FileItem {
+        group.min(by: isMoreOriginal) ?? group[0]
+    }
+
+    /// Strict ordering used by `chooseOriginal`: returns true when `a` is a
+    /// better "keep this one" candidate than `b`.
+    private static func isMoreOriginal(_ a: FileItem, _ b: FileItem) -> Bool {
+        let aBackup = isLikelyBackupCopy(a.url)
+        let bBackup = isLikelyBackupCopy(b.url)
+        if aBackup != bBackup { return !aBackup }   // non-backup wins
+
+        let aDepth = pathDepth(a.url)
+        let bDepth = pathDepth(b.url)
+        if aDepth != bDepth { return aDepth < bDepth }   // shallower wins
+
+        let aDate = a.creationDate ?? a.modificationDate ?? .distantFuture
+        let bDate = b.creationDate ?? b.modificationDate ?? .distantFuture
+        if aDate != bDate { return aDate < bDate }   // older wins
+
+        return a.url.path(percentEncoded: false) < b.url.path(percentEncoded: false)
+    }
+
+    private static func pathDepth(_ url: URL) -> Int {
+        url.path(percentEncoded: false).split(separator: "/").count
+    }
+
+    /// Turn raw duplicate sets into display groups: one kept original plus the
+    /// removable extras, sorted so the biggest space wins are first. Sets that
+    /// collapse to a single file (nothing to remove) are dropped.
+    public static func displayGroups(_ groups: [[FileItem]]) -> [DuplicateDisplayGroup] {
+        groups.compactMap { group -> DuplicateDisplayGroup? in
+            guard group.count > 1 else { return nil }
+            let original = chooseOriginal(group)
+            let duplicates = group.filter { $0.url != original.url }
+            guard !duplicates.isEmpty else { return nil }
+            return DuplicateDisplayGroup(original: original, duplicates: duplicates)
+        }
+        .sorted { $0.wastedSpace > $1.wastedSpace }
+    }
+}
+
+/// One set of identical files, split into the copy we keep (`original`) and
+/// the redundant copies the user can remove (`duplicates`). Only `duplicates`
+/// is ever eligible for deletion — `original` exists purely so the UI can show
+/// what's being preserved.
+public struct DuplicateDisplayGroup: Identifiable, Hashable, Sendable {
+    public let id: UUID
+    public let original: FileItem
+    public let duplicates: [FileItem]
+
+    public init(id: UUID = UUID(), original: FileItem, duplicates: [FileItem]) {
+        self.id = id
+        self.original = original
+        self.duplicates = duplicates
+    }
+
+    /// original + every removable copy, original first.
+    public var allFiles: [FileItem] { [original] + duplicates }
+
+    /// Total copies in the set, including the kept original.
+    public var copyCount: Int { duplicates.count + 1 }
+
+    /// Bytes reclaimable by removing the extras (every copy is the same size).
+    public var wastedSpace: UInt64 { original.size * UInt64(duplicates.count) }
+
+    public var formattedWastedSpace: String {
+        ByteCountFormatter.string(fromByteCount: Int64(wastedSpace), countStyle: .file)
     }
 }

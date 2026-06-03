@@ -166,4 +166,44 @@ final class TargetedScannerTests: XCTestCase {
                            "a readable but empty dir is not a permission problem")
         }
     }
+
+    // MARK: - skipHiddenDirectories prunes dot-subtrees (duplicate-scan scope)
+
+    /// With the flag on, the scanner must stay out of hidden (dot-prefixed)
+    /// directories AND skip hidden files — those hold app/developer state, not
+    /// user documents. Only the visible file should come back.
+    func testSkipHiddenDirectoriesPrunesDotSubtrees() async throws {
+        try await TestFixtures.withTempDir { dir in
+            try TestFixtures.writeFile(at: dir.appending(path: "visible.log"), size: 100)
+            try TestFixtures.writeFile(at: dir.appending(path: ".cache/inside.log"), size: 100)
+            try TestFixtures.writeFile(at: dir.appending(path: ".config/deep/nested.log"), size: 100)
+            try TestFixtures.writeFile(at: dir.appending(path: ".hiddenfile.log"), size: 100)
+
+            let items = await TargetedScanner().scan(targets: [
+                ScanTarget(path: dir, recursive: true, skipHiddenDirectories: true),
+            ])
+
+            let logs = items.filter { $0.fileExtension == "log" }
+            XCTAssertEqual(logs.map(\.name), ["visible.log"],
+                           "hidden subtrees and hidden files must be pruned")
+        }
+    }
+
+    /// Default behavior is unchanged: with the flag off, hidden files are still
+    /// enumerated, so existing modules keep seeing what they always did.
+    func testHiddenIncludedWhenFlagOff() async throws {
+        try await TestFixtures.withTempDir { dir in
+            try TestFixtures.writeFile(at: dir.appending(path: "visible.log"), size: 100)
+            try TestFixtures.writeFile(at: dir.appending(path: ".cache/inside.log"), size: 100)
+
+            let items = await TargetedScanner().scan(targets: [
+                ScanTarget(path: dir, recursive: true), // skipHiddenDirectories defaults off
+            ])
+
+            let logs = Set(items.filter { $0.fileExtension == "log" }.map(\.name))
+            XCTAssertTrue(logs.contains("visible.log"))
+            XCTAssertTrue(logs.contains("inside.log"),
+                          "with the flag off, hidden subtrees are still scanned")
+        }
+    }
 }

@@ -4,6 +4,13 @@ import MacCleanKit
 struct DuplicatesView: View {
     @Environment(AppState.self) private var appState
     @State private var results: [ScanResult] = []
+    /// The grouped view model the UI renders. `results` is derived from this
+    /// (its removable copies) and is what the cleaner acts on; `displayGroups`
+    /// carries the kept-original info that `results` alone can't express.
+    @State private var displayGroups: [DuplicateDisplayGroup] = []
+    /// Which duplicate sets are expanded in the grouped results. Owned here so
+    /// it survives the AnyView rebuild that happens on each checkbox toggle.
+    @State private var expandedGroups: Set<UUID> = []
     @State private var selectedItems: Set<URL> = []
     @State private var isScanning = false
     @State private var scanProgress: Double = 0
@@ -46,7 +53,16 @@ struct DuplicatesView: View {
                     cleaning: cleaning,
                     onScan: scan, onClean: clean,
                     onCancelClean: { cleanTask?.cancel() },
-                    onReset: reset
+                    onReset: reset,
+                    resultsContent: {
+                        AnyView(
+                            DuplicateGroupsList(
+                                groups: displayGroups,
+                                selectedItems: $selectedItems,
+                                expanded: $expandedGroups
+                            )
+                        )
+                    }
                 )
             } else if completion != nil {
                 ModuleContainerView(
@@ -67,21 +83,6 @@ struct DuplicatesView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onAppear {
-            if let e = appState.scanResultsStore.entry(for: .duplicates) {
-                results = e.results
-                selectedItems = e.selection
-                scanComplete = e.scanComplete
-            }
-        }
-        .onDisappear {
-            appState.scanResultsStore.save(
-                results: results,
-                selection: selectedItems,
-                scanComplete: scanComplete,
-                for: .duplicates
-            )
-        }
     }
 
     private var idleView: some View {
@@ -179,13 +180,22 @@ struct DuplicatesView: View {
             scanPhase = "Hashing candidate files in parallel..."
 
             let module = DuplicatesModule()
-            let scanResults = await module.scan()
+            let groups = await module.scanDisplayGroups()
 
             scanPhase = "Finalizing..."
             try? await Task.sleep(for: .milliseconds(300))
 
             timerTask.cancel()
-            results = scanResults
+            displayGroups = groups
+            expandedGroups = []
+            // The cleaner only ever sees the removable copies — never an
+            // original — so a kept copy can't be deleted even by selecting all.
+            let removable = groups.flatMap(\.duplicates)
+            results = removable.isEmpty
+                ? []
+                : [ScanResult(category: .duplicates, items: removable, autoSelect: false)]
+            // Pre-check every removable copy; the user unchecks anything to spare.
+            selectedItems = Set(removable.map(\.url))
             isScanning = false
             scanComplete = true
         }
@@ -217,7 +227,7 @@ struct DuplicatesView: View {
     }
 
     private func reset() {
-        results = []; selectedItems = []
+        results = []; displayGroups = []; expandedGroups = []; selectedItems = []
         completion = nil; cleaning = nil; cleanTask = nil
         scanComplete = false; elapsedSeconds = 0
     }

@@ -101,6 +101,19 @@ public actor TargetedScanner {
                     }
                 }
 
+                // Skip hidden (dot-prefixed) entries when the target opts in.
+                // These subtrees hold application and developer state — caches,
+                // editor extensions, tool configs — never user-facing duplicate
+                // documents. Pruning the whole subtree keeps a content-oriented
+                // scan focused on real user files.
+                if target.skipHiddenDirectories && ScanTarget.isHiddenEntry(fileURL) {
+                    let isDir = (try? fileURL.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+                    if isDir {
+                        enumerator.skipDescendants()
+                    }
+                    continue
+                }
+
                 // Excluded by name? Prune the whole subtree if it's a directory
                 // (e.g. com.spotify.client/* — deleting Spotify's cache wipes
                 // the user's offline music) and skip the item itself.

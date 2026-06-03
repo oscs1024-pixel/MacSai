@@ -12,18 +12,26 @@ public struct DuplicatesModule: ScanModule {
 
     public init() {}
 
-    public func scan() async -> [ScanResult] {
-        let targets = [
+    /// Scan targets for the duplicate finder: the home folder, minus hidden
+    /// (dot-prefixed) subtrees — those hold app/developer state (caches,
+    /// extensions, configs) rather than user documents, and surfacing them as
+    /// "duplicates" both buries real finds in noise and risks breaking apps
+    /// that need their copy at that exact path.
+    private var scanTargets: [ScanTarget] {
+        [
             ScanTarget(
                 path: MCConstants.home,
                 recursive: true,
                 maxDepth: 5,
                 minSize: 1024,
-                excludePatterns: ["Library", ".Trash", ".git", "node_modules", ".build"]
+                excludePatterns: ["Library", "node_modules"],
+                skipHiddenDirectories: true
             ),
         ]
+    }
 
-        let items = await scanner.scan(targets: targets)
+    public func scan() async -> [ScanResult] {
+        let items = await scanner.scan(targets: scanTargets)
         let files = items.filter { !$0.isDirectory }
         let duplicateGroups = await findDuplicates(files)
         let duplicates = DuplicateDetection.extractDeletableDuplicates(duplicateGroups)
@@ -31,6 +39,21 @@ public struct DuplicatesModule: ScanModule {
         guard !duplicates.isEmpty else { return [] }
         return [ScanResult(category: .duplicates, items: duplicates, autoSelect: false)]
             .filteringUncleanable()
+    }
+
+    /// Like `scan()`, but returns the full grouped structure the Duplicates UI
+    /// shows: each set's kept original plus its removable copies. Only the
+    /// removable copies are filtered for cleanability — the original is never
+    /// deleted, so it doesn't matter whether the current process could trash
+    /// it. Sets with no cleanable extras left are dropped by `displayGroups`.
+    public func scanDisplayGroups() async -> [DuplicateDisplayGroup] {
+        let items = await scanner.scan(targets: scanTargets)
+        let files = items.filter { !$0.isDirectory }
+        let duplicateGroups = await findDuplicates(files)
+        let cleanableGroups = duplicateGroups.map { group in
+            group.filter { CleanFilter.isCleanableByCurrentProcess($0.url) }
+        }
+        return DuplicateDetection.displayGroups(cleanableGroups)
     }
 
     /// Run the full pipeline. Pure decisions come from `DuplicateDetection`
@@ -97,22 +120,5 @@ public struct DuplicatesModule: ScanModule {
         }
         let digest = hasher.finalize()
         return digest.map { String(format: "%02x", $0) }.joined()
-    }
-}
-
-// MARK: - Duplicate Group Display
-
-public struct DuplicateGroup: Identifiable, Sendable {
-    public let id: UUID = UUID()
-    public let hash: String
-    public let size: UInt64
-    public let files: [FileItem]
-
-    public var wastedSpace: UInt64 {
-        size * UInt64(files.count - 1)
-    }
-
-    public var formattedWastedSpace: String {
-        ByteCountFormatter.string(fromByteCount: Int64(wastedSpace), countStyle: .file)
     }
 }

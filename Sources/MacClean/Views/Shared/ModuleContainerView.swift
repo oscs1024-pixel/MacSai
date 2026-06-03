@@ -38,6 +38,13 @@ struct ModuleContainerView: View {
     /// Used only by the Trash Bins module, whose Clean permanently
     /// deletes (it empties ~/.Trash) rather than moving items to the Trash.
     let confirmEmptyTrash: Bool
+    /// Optional replacement for the default flat `FileListView` in the results
+    /// screen. When provided, the container keeps all of its chrome (selection
+    /// header, Clean button + confirmations, cleaning/progress/done states) but
+    /// renders this view for the item list instead. The Duplicates module uses
+    /// it to show a grouped, keep-the-original layout while reusing everything
+    /// else. The closure should read/write the same `selectedItems` binding.
+    let resultsContent: (() -> AnyView)?
 
     init(
         title: String,
@@ -58,7 +65,8 @@ struct ModuleContainerView: View {
         onCancelClean: (() -> Void)? = nil,
         onReset: @escaping () -> Void,
         onGrantAccess: (() -> Void)? = nil,
-        confirmEmptyTrash: Bool = false
+        confirmEmptyTrash: Bool = false,
+        resultsContent: (() -> AnyView)? = nil
     ) {
         self.title = title
         self.subtitle = subtitle
@@ -79,6 +87,7 @@ struct ModuleContainerView: View {
         self.onReset = onReset
         self.onGrantAccess = onGrantAccess
         self.confirmEmptyTrash = confirmEmptyTrash
+        self.resultsContent = resultsContent
     }
 
     @State private var showLargeSelectionConfirm = false
@@ -336,11 +345,17 @@ struct ModuleContainerView: View {
             .padding(.horizontal, 24)
             .padding(.vertical, 14)
 
-            FileListView(results: results, selectedItems: $selectedItems)
-                .background(.ultraThinMaterial)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
-                .padding(.horizontal, 20)
-                .padding(.bottom, 20)
+            Group {
+                if let resultsContent {
+                    resultsContent()
+                } else {
+                    FileListView(results: results, selectedItems: $selectedItems)
+                }
+            }
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .padding(.horizontal, 20)
+            .padding(.bottom, 20)
         }
     }
 
