@@ -7,6 +7,7 @@ public enum ModuleTheme {
     case performance
     case applications
     case files
+    case settings
 
     public var gradient: LinearGradient {
         LinearGradient(
@@ -38,6 +39,8 @@ public enum ModuleTheme {
             [Color(red: 0.38, green: 0.12, blue: 0.62), Color(red: 0.55, green: 0.25, blue: 0.78), Color(red: 0.68, green: 0.35, blue: 0.88)]
         case .files:
             [Color(red: 0.06, green: 0.38, blue: 0.52), Color(red: 0.10, green: 0.52, blue: 0.65), Color(red: 0.18, green: 0.65, blue: 0.78)]
+        case .settings:
+            [Color(red: 0.16, green: 0.17, blue: 0.21), Color(red: 0.26, green: 0.28, blue: 0.33), Color(red: 0.37, green: 0.39, blue: 0.45)]
         }
     }
 
@@ -55,6 +58,8 @@ public enum ModuleTheme {
             [Color(red: 0.52, green: 0.22, blue: 0.72), Color(red: 0.68, green: 0.35, blue: 0.85)]
         case .files:
             [Color(red: 0.12, green: 0.50, blue: 0.62), Color(red: 0.22, green: 0.62, blue: 0.75)]
+        case .settings:
+            [Color(red: 0.30, green: 0.32, blue: 0.38), Color(red: 0.42, green: 0.44, blue: 0.51)]
         }
     }
 

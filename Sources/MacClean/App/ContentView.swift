@@ -95,6 +95,9 @@ struct ContentView: View {
             DuplicatesView()
         case .shredder:
             ShredderView()
+        case .settings:
+            // Placeholder until Task 5 lands SettingsPageView.
+            Text("Settings")
         }
     }
 }

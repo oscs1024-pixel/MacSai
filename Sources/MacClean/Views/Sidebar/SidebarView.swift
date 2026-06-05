@@ -27,6 +27,9 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
     case duplicates = "Duplicates"
     case shredder = "Shredder"
 
+    // Footer (pinned below the list, not rendered in any section)
+    case settings = "Settings"
+
     public var id: String { rawValue }
 
     /// Stable slug used in `macclean://module/<id>` deep links.
@@ -46,6 +49,7 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         case .largeOldFiles: "large-old-files"
         case .duplicates: "duplicates"
         case .shredder: "shredder"
+        case .settings: "settings"
         }
     }
 
@@ -70,6 +74,7 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         case .largeOldFiles: "doc.richtext"
         case .duplicates: "plus.square.on.square"
         case .shredder: "scissors"
+        case .settings: "gearshape"
         }
     }
 
@@ -81,6 +86,7 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         case .optimization, .maintenance: .performance
         case .uninstaller, .updater: .applications
         case .spaceLens, .largeOldFiles, .duplicates, .shredder: .files
+        case .settings: .settings
         }
     }
 
@@ -92,6 +98,7 @@ public enum SidebarItem: String, CaseIterable, Identifiable {
         case .optimization, .maintenance: .performance
         case .uninstaller, .updater: .applications
         case .spaceLens, .largeOldFiles, .duplicates, .shredder: .files
+        case .settings: .main
         }
     }
 }
@@ -107,7 +114,8 @@ public enum SidebarSection: String, CaseIterable, Identifiable {
     public var id: String { rawValue }
 
     public var items: [SidebarItem] {
-        SidebarItem.allCases.filter { $0.section == self }
+        // .settings is pinned to the footer; it never renders inside a section.
+        SidebarItem.allCases.filter { $0.section == self && $0 != .settings }
     }
 }
 
