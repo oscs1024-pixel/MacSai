@@ -9,7 +9,7 @@ Be respectful, constructive, and inclusive. We're building software together.
 ## Getting Started
 
 1. **Fork** the repository
-2. **Clone** your fork: `git clone https://github.com/YOUR_USERNAME/MacClean.git`
+2. **Clone** your fork: `git clone https://github.com/YOUR_USERNAME/MacSai.git`
 3. **Build**: `swift build`
 4. **Run tests**: `swift test` (must pass with 0 failures)
 5. **Create a branch**: `git checkout -b feature/your-feature`

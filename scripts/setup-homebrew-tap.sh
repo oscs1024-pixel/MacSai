@@ -1,5 +1,5 @@
 #!/bin/bash
-# One-time setup: creates the homebrew-macclean tap repo and a workflow
+# One-time setup: creates the homebrew-macsai tap repo and a workflow
 # that keeps it in sync with Casks/mac-sai.rb in this repo.
 #
 # Requires: gh CLI authenticated
@@ -8,7 +8,7 @@
 set -euo pipefail
 
 GH_USER=$(gh api user --jq .login)
-TAP_REPO="homebrew-macclean"
+TAP_REPO="homebrew-macsai"
 
 echo "=== Setting up Homebrew tap for ${GH_USER}/${TAP_REPO} ==="
 
@@ -25,7 +25,7 @@ mkdir -p Casks
 cp /Users/iliya/Dev/MacClean/Casks/mac-sai.rb Casks/mac-sai.rb
 
 cat > README.md <<EOF
-# homebrew-macclean
+# homebrew-macsai
 
 Homebrew tap for [Mac Sai](https://github.com/${GH_USER}/MacClean) — the open-source Mac cleaner.
 

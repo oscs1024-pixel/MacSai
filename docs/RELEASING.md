@@ -20,7 +20,7 @@ secret**.
 | `ASC_KEY_ID` | App Store Connect API key ID | App Store Connect → Users and Access → Integrations → Keys |
 | `ASC_ISSUER_ID` | App Store Connect issuer ID | Same Keys page (shown above the table) |
 | `ASC_KEY_P8_BASE64` | The `.p8` API key file, base64-encoded | `base64 -i AuthKey_XXXX.p8 \| pbcopy` |
-| `TAP_PUSH_TOKEN` | PAT that can push to `iliyami/homebrew-macclean` | GitHub → Settings → Developer settings → Fine-grained token, Contents: write on the tap repo |
+| `TAP_PUSH_TOKEN` | PAT that can push to `iliyami/homebrew-macsai` | GitHub → Settings → Developer settings → Fine-grained token, Contents: write on the tap repo |
 
 ## Exporting the certificate
 
@@ -52,7 +52,7 @@ secret**.
 3. Runs `scripts/build-dmg.sh --notarize`, which signs with hardened runtime,
    notarizes the **app** (stapled) and the **DMG** (stapled), and verifies.
 4. Publishes the GitHub release and updates the Homebrew cask in
-   `iliyami/homebrew-macclean` with the new version and the DMG's SHA-256.
+   `iliyami/homebrew-macsai` with the new version and the DMG's SHA-256.
 5. Deletes the ephemeral keychain (runs even if earlier steps fail).
 
 ## Building a notarized DMG locally

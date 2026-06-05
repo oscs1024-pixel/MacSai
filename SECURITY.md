@@ -6,9 +6,9 @@ Mac Sai deletes files on your Mac and runs a privileged XPC helper, so security 
 
 **Please do not open public GitHub issues for security vulnerabilities.**
 
-Report them privately via [GitHub's Private Vulnerability Reporting](https://github.com/iliyami/MacClean/security/advisories/new):
+Report them privately via [GitHub's Private Vulnerability Reporting](https://github.com/iliyami/MacSai/security/advisories/new):
 
-1. Open the [Security tab](https://github.com/iliyami/MacClean/security) on the repository
+1. Open the [Security tab](https://github.com/iliyami/MacSai/security) on the repository
 2. Click **Report a vulnerability**
 3. Include: the affected file or feature, reproduction steps, expected vs actual behavior, and a suggested fix if you have one
 
@@ -57,7 +57,7 @@ Reports about the following areas get priority:
 Mac Sai is ad-hoc signed (not Apple-notarized — see the README for why). To verify a release DMG corresponds to the source you reviewed, build it yourself:
 
 ```bash
-git clone https://github.com/iliyami/MacClean.git
+git clone https://github.com/iliyami/MacSai.git
 cd MacClean
 git checkout v1.0.0   # or whichever release
 bash scripts/build-dmg.sh

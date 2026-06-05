@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/iliyami/MacClean/stargazers"><img src="https://img.shields.io/github/stars/iliyami/MacClean?style=flat-square&color=gold" alt="GitHub stars" /></a>
+  <a href="https://github.com/iliyami/MacSai/stargazers"><img src="https://img.shields.io/github/stars/iliyami/MacSai?style=flat-square&color=gold" alt="GitHub stars" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%2014%2B-blue?style=flat-square" alt="macOS 14+" />
   <img src="https://img.shields.io/badge/swift-6.0-orange?style=flat-square" alt="Swift 6" />
   <img src="https://img.shields.io/badge/tests-486%20passing-brightgreen?style=flat-square" alt="Tests" />
@@ -29,11 +29,11 @@
 </p>
 
 ```bash
-brew tap iliyami/macclean && brew install --cask mac-sai
+brew tap iliyami/macsai && brew install --cask mac-sai
 ```
 
 <p align="center">
-  Or grab the <a href="https://github.com/iliyami/MacClean/releases/latest">latest DMG</a> from Releases.
+  Or grab the <a href="https://github.com/iliyami/MacSai/releases/latest">latest DMG</a> from Releases.
 </p>
 
 ---
@@ -164,7 +164,7 @@ Mac Sai is designed to **never cause data loss**:
 ### Homebrew (recommended — one command, no warnings)
 
 ```bash
-brew tap iliyami/macclean
+brew tap iliyami/macsai
 brew install --cask mac-sai
 ```
 
@@ -173,19 +173,19 @@ Mac Sai is notarized by Apple, so it launches from Spotlight or Applications wit
 ### One-line installer
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/iliyami/MacClean/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/iliyami/MacSai/main/scripts/install.sh | bash
 ```
 
 This downloads the latest DMG and installs the app to `/Applications`.
 
 ### DMG download
 
-Download the latest DMG from [Releases](https://github.com/iliyami/MacClean/releases/latest) and drag Mac Sai to your Applications folder. Mac Sai is notarized by Apple, so it launches normally with no Gatekeeper warning and no extra commands.
+Download the latest DMG from [Releases](https://github.com/iliyami/MacSai/releases/latest) and drag Mac Sai to your Applications folder. Mac Sai is notarized by Apple, so it launches normally with no Gatekeeper warning and no extra commands.
 
 ### Build from source
 
 ```bash
-git clone https://github.com/iliyami/MacClean.git
+git clone https://github.com/iliyami/MacSai.git
 cd MacClean
 swift build
 swift test                     # run 486 tests
@@ -338,11 +338,11 @@ Inspired by the open-source Mac utility community:
 ## Star History
 
 <p align="center">
-  <a href="https://www.star-history.com/?type=date&repos=iliyami%2FMacClean">
+  <a href="https://www.star-history.com/?type=date&repos=iliyami%2FMacSai">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=iliyami/MacClean&type=date&theme=dark&legend=top-left" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=iliyami/MacClean&type=date&legend=top-left" />
-      <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=iliyami/MacClean&type=date&legend=top-left" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=iliyami/MacSai&type=date&theme=dark&legend=top-left" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=iliyami/MacSai&type=date&legend=top-left" />
+      <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=iliyami/MacSai&type=date&legend=top-left" />
     </picture>
   </a>
 </p>

@@ -131,7 +131,7 @@ jobs:
           ### Install via Homebrew
 
           \`\`\`
-          brew tap iliyami/macclean
+          brew tap iliyami/macsai
           brew install --cask mac-sai
           \`\`\`
 
@@ -153,7 +153,7 @@ jobs:
       - name: Update Homebrew cask in tap repo
         run: |
           REPO_OWNER="${{ github.repository_owner }}"
-          TAP="${REPO_OWNER}/homebrew-macclean"
+          TAP="${REPO_OWNER}/homebrew-macsai"
           CASK_PATH="Casks/mac-sai.rb"
           VERSION="${{ steps.version.outputs.version }}"
 
