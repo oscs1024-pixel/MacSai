@@ -62,7 +62,8 @@ struct MacCleanApp: App {
             // showMenuBarWidget already defaults to true; setEnabled is
             // idempotent if already registered.
         }
-        MenuBarLauncher.shared.setEnabled(showMenuBarWidget)
+        // Async: the SMAppService XPC round-trip must not block app launch.
+        Task { await MenuBarLauncher.shared.setEnabled(showMenuBarWidget) }
     }
 }
 

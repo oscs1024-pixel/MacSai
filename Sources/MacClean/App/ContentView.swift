@@ -51,12 +51,10 @@ struct ContentView: View {
             }
             .toolbarBackground(.hidden, for: .windowToolbar)
         }
+        // Title bar shows the app name only (centered); the version moved
+        // to the sidebar footer next to the Settings button. The constant
+        // is still checked against VERSION by CI (check-version-sync.sh).
         .navigationTitle(MCConstants.appName)
-        // Native macOS pattern: small grey second line under the title.
-        // MCConstants.appVersion is checked against VERSION by CI
-        // (scripts/check-version-sync.sh) — drifting between the two
-        // fails the build.
-        .navigationSubtitle("v\(MCConstants.appVersion)")
         // Mark the current selection visited (runs initially too) so its view
         // is created on first visit and then retained.
         .onChange(of: appState.selectedSidebarItem, initial: true) { _, newValue in

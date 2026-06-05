@@ -22,7 +22,6 @@ struct SettingsPageView: View {
     @State private var launcher = MenuBarLauncher.shared
     @State private var loginLauncher = LaunchAtLoginManager.shared
     @State private var updateState: UpdateUIState = .idle
-    @State private var refreshTick = 0
     @State private var keptLanguages: Set<String> = []
     @State private var selectable: [(name: String, lprojs: [String])] = []
     @State private var languageSearch: String = ""
@@ -45,7 +44,6 @@ struct SettingsPageView: View {
         .scrollContentBackground(.hidden)
         .frame(maxWidth: 680)
         .frame(maxWidth: .infinity)
-        .id(refreshTick)
         .onAppear {
             keptLanguages = LanguagePreferences.userKept
             selectable = LanguagePreferences.selectableLanguages()
@@ -156,17 +154,26 @@ struct SettingsPageView: View {
 
     private var generalSection: some View {
         Section("General") {
-            Toggle(isOn: $launchAtLogin) {
+            // Toggle flips instantly; the SMAppService round-trip runs in the
+            // background with a spinner (no main-thread block, no lag).
+            HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Launch at login")
                     Text("Open \(MCConstants.appName) automatically when you sign in to macOS. You can also manage this in System Settings → General → Login Items.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                Spacer()
+                if loginLauncher.isBusy {
+                    ProgressView().controlSize(.small)
+                }
+                Toggle("Launch at login", isOn: $launchAtLogin)
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                    .disabled(loginLauncher.isBusy)
             }
             .onChange(of: launchAtLogin) { _, newValue in
-                loginLauncher.setEnabled(newValue)
-                refreshTick &+= 1
+                Task { await loginLauncher.setEnabled(newValue) }
             }
             if loginLauncher.status == .requiresApproval {
                 Label("Needs approval in System Settings → General → Login Items",
@@ -180,17 +187,24 @@ struct SettingsPageView: View {
                     .font(.caption)
             }
 
-            Toggle(isOn: $showMenuBarWidget) {
+            HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Show \(MCConstants.appName) in the menu bar")
                     Text("Live CPU, memory, disk, battery, and network at the top of your screen. Click to expand the popover.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
+                Spacer()
+                if launcher.isBusy {
+                    ProgressView().controlSize(.small)
+                }
+                Toggle("Show \(MCConstants.appName) in the menu bar", isOn: $showMenuBarWidget)
+                    .toggleStyle(.switch)
+                    .labelsHidden()
+                    .disabled(launcher.isBusy)
             }
             .onChange(of: showMenuBarWidget) { _, newValue in
-                launcher.setEnabled(newValue)
-                refreshTick &+= 1
+                Task { await launcher.setEnabled(newValue) }
             }
             widgetStatusRow
             if let err = launcher.lastError {
@@ -238,18 +252,35 @@ struct SettingsPageView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                ForEach(filteredLanguages, id: \.name) { lang in
-                    // One toggle covers every folder variant of the
-                    // language (e.g. "fr.lproj" + legacy "French.lproj").
-                    Toggle(lang.name, isOn: Binding(
-                        get: { lang.lprojs.allSatisfy { keptLanguages.contains($0) } },
-                        set: { on in
-                            if on { keptLanguages.formUnion(lang.lprojs) }
-                            else { lang.lprojs.forEach { keptLanguages.remove($0) } }
-                            LanguagePreferences.userKept = keptLanguages
+                // Fixed-height scroll box: ~100 languages would otherwise
+                // stretch the page and push the About section out of reach.
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        ForEach(filteredLanguages, id: \.name) { lang in
+                            // One toggle covers every folder variant of the
+                            // language (e.g. "fr.lproj" + legacy "French.lproj").
+                            HStack {
+                                Text(lang.name)
+                                Spacer()
+                                Toggle(lang.name, isOn: Binding(
+                                    get: { lang.lprojs.allSatisfy { keptLanguages.contains($0) } },
+                                    set: { on in
+                                        if on { keptLanguages.formUnion(lang.lprojs) }
+                                        else { lang.lprojs.forEach { keptLanguages.remove($0) } }
+                                        LanguagePreferences.userKept = keptLanguages
+                                    }
+                                ))
+                                .toggleStyle(.switch)
+                                .controlSize(.small)
+                                .labelsHidden()
+                            }
+                            .padding(.vertical, 5)
+                            .padding(.trailing, 6)
+                            Divider().opacity(0.5)
                         }
-                    ))
+                    }
                 }
+                .frame(height: 250)
             }
         }
     }
@@ -313,7 +344,7 @@ struct SettingsPageView: View {
     }
 
     private var statusGlyph: String {
-        switch launcher.status {
+        switch launcher.statusSnapshot {
         case .enabled: return "checkmark.circle.fill"
         case .notRegistered: return "minus.circle"
         case .notFound: return "questionmark.circle"
@@ -323,7 +354,7 @@ struct SettingsPageView: View {
     }
 
     private var statusColor: Color {
-        switch launcher.status {
+        switch launcher.statusSnapshot {
         case .enabled: return .green
         case .requiresApproval: return .orange
         default: return .secondary
@@ -331,7 +362,7 @@ struct SettingsPageView: View {
     }
 
     private var statusText: String {
-        switch launcher.status {
+        switch launcher.statusSnapshot {
         case .enabled: return "running"
         case .notRegistered: return "not registered"
         case .notFound: return "helper not found in bundle"

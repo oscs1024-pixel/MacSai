@@ -26,19 +26,39 @@ public final class LaunchAtLoginManager {
 
     public internal(set) var lastError: LaunchAtLoginError?
 
-    private let service = SMAppService.mainApp
+    /// True while a register/unregister XPC round-trip is in flight; the
+    /// Settings toggle shows a spinner and disables itself instead of
+    /// blocking the main thread on backgroundtaskmanagementd.
+    public internal(set) var isBusy = false
 
-    public var isEnabled: Bool { service.status == .enabled }
-    public var status: SMAppService.Status { service.status }
+    /// Observable mirror of `SMAppService.mainApp.status`, refreshed after
+    /// every operation. `SMAppService.status` is a live computed value with
+    /// no change notifications, so views read this snapshot.
+    public internal(set) var status: SMAppService.Status = .notRegistered
 
-    private init() {}
+    public var isEnabled: Bool { status == .enabled }
 
-    public func setEnabled(_ enabled: Bool) {
-        do {
-            if enabled { try service.register() } else { try service.unregister() }
-            lastError = nil
-        } catch {
-            lastError = .updateFailed(enabling: enabled, message: error.localizedDescription)
-        }
+    private init() {
+        status = SMAppService.mainApp.status
+    }
+
+    public func setEnabled(_ enabled: Bool) async {
+        isBusy = true
+        defer { isBusy = false }
+        // register()/unregister() block on an XPC round-trip (the visible
+        // "toggle lag"), so they run off the main actor. The detached task
+        // touches no @MainActor state (issue #58 rule); the result comes
+        // back here, on the main actor.
+        let failure: String? = await Task.detached(priority: .userInitiated) {
+            do {
+                if enabled { try SMAppService.mainApp.register() }
+                else { try SMAppService.mainApp.unregister() }
+                return nil
+            } catch {
+                return error.localizedDescription
+            }
+        }.value
+        lastError = failure.map { .updateFailed(enabling: enabled, message: $0) }
+        status = SMAppService.mainApp.status
     }
 }
