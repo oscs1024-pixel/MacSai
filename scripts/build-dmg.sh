@@ -20,12 +20,11 @@ set -euo pipefail
 APP_NAME="Mac Sai"
 BUNDLE_ID="com.macclean.app"
 VERSION="${VERSION:-$(cat VERSION 2>/dev/null | tr -d '[:space:]' || echo '1.0.0')}"
-# Multi-arch build emits the universal binary under .build/apple/Products/Release/
-# instead of the single-arch .build/release/. Without this, Intel Macs (anything
-# pre-Apple-Silicon, including the 2018 MBP A1989) launch the app and get
-# "you can't open the application MacClean because PowerPC applications are
-# no longer supported" — actually arm64 binaries get a similar refusal.
-BUILD_DIR=".build/apple/Products/Release"
+# BUILD_DIR is resolved AFTER the build via `swift build --show-bin-path`:
+# multi-arch builds emit to .build/apple/Products/Release/ while single-arch
+# (BUILD_ARCHS override) emits to .build/<triple>/release/. Hardcoding one of
+# them silently bundles stale binaries from the other (a 1.9.0 app shipped in
+# a 1.10.0 wrapper during dev-install testing — binary and Info.plist drift).
 DMG_DIR=".build/dmg"
 DMG_NAME="MacSai-${VERSION}.dmg"
 
@@ -60,6 +59,8 @@ echo ""
 BUILD_ARCHS="${BUILD_ARCHS:---arch arm64 --arch x86_64}"
 echo "[1/6] Building release binary (${BUILD_ARCHS})..."
 swift build -c release ${BUILD_ARCHS}
+BUILD_DIR=$(swift build -c release ${BUILD_ARCHS} --show-bin-path)
+echo "  → Binaries: ${BUILD_DIR}"
 
 # Step 2: Create .app bundle
 echo "[2/6] Creating app bundle..."
