@@ -48,6 +48,17 @@ Icon?
 *.p12
 *.mobileprovision
 *.provisionprofile
+# App Store Connect API keys (notarization)
+*.p8
+AuthKey_*.p8
+# Certs / private keys / exported keychains
+*.cer
+*.der
+*.pem
+*.key
+*.keychain
+*.keychain-db
+devid*
 
 # Marketing copy (not part of the public repo)
 marketing/
