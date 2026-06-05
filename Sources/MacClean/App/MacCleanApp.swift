@@ -38,9 +38,15 @@ struct MacCleanApp: App {
         }
         .windowStyle(.titleBar)
         .defaultSize(width: 960, height: 620)
-
-        Settings {
-            SettingsView()
+        // Keep the standard "Settings…" menu item + Cmd-comma, but route
+        // them to the in-app page (the separate Settings window is gone).
+        .commands {
+            CommandGroup(replacing: .appSettings) {
+                Button("Settings…") {
+                    appState.selectedSidebarItem = .settings
+                }
+                .keyboardShortcut(",", modifiers: .command)
+            }
         }
     }
 
@@ -62,6 +68,7 @@ struct MacCleanApp: App {
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
+        AppearanceManager.applyStored()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
     }

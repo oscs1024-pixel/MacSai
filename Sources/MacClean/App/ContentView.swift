@@ -96,8 +96,7 @@ struct ContentView: View {
         case .shredder:
             ShredderView()
         case .settings:
-            // Placeholder until Task 5 lands SettingsPageView.
-            Text("Settings")
+            SettingsPageView()
         }
     }
 }
