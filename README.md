@@ -200,22 +200,20 @@ Some modules (Mail Attachments, Privacy, Malware) need Full Disk Access to scan 
 2. Click **+** and add **Mac Sai.app** from Applications
 3. Restart Mac Sai
 
-## Signing & notarization
+## Signed & notarized: why you can trust it
 
-Mac Sai is signed with an Apple **Developer ID** and **notarized by Apple**. Gatekeeper trusts it: install and launch normally, with no warnings, no right-click-Open, and no `xattr` commands.
+Mac Sai is code-signed with an Apple **Developer ID** and **notarized by Apple**. That matters more for a cleaning app than for almost anything else you install, because you are about to give it deep access to your files. You deserve to know that what runs on your Mac is genuinely ours and has not been tampered with.
 
-Notarization is a security boundary here, not just convenience. The privileged helper is a root LaunchDaemon, and it only accepts XPC connections whose code signature is pinned to our Developer ID **Team ID** (`anchor apple generic and certificate leaf[subject.OU] = "H3XLS95QV4"`), not merely our bundle identifier. An identifier-only check is forgeable by any ad-hoc-signed process, which would be a local privilege-escalation path; the Team ID pin closes it, because an attacker cannot obtain a certificate issued to our team.
+Here is what that gives you, enforced by your own Mac and not just promised by us:
 
-### Building a notarized release (maintainers)
+- **Apple has scanned it.** Every release is submitted to Apple and checked for malware before it ships. Notarization is Apple vouching that this exact build came back clean.
+- **It cannot be tampered with.** The signature is a cryptographic seal over every file in the app. If a single byte changes after we sign it, whether from a corrupted download, a network attacker, or malware trying to ride on our name, macOS refuses to open it.
+- **It is provably from us.** The signature is tied to our Apple Developer identity, so no one else can ship something your Mac will accept as Mac Sai.
+- **It just works.** No Gatekeeper warnings, no right-click-to-open, no Terminal commands. Install it and launch it like any app you trust.
 
-```bash
-export APPLE_DEVELOPER_ID='Developer ID Application: Your Name (TEAMID)'
-xcrun notarytool store-credentials 'MacSai' --apple-id YOU@example.com --team-id TEAMID
-export NOTARY_PROFILE='MacSai'
-bash scripts/build-dmg.sh --notarize
-```
+Put together with the fact that the entire source is open for you to read, this is a chain of trust you do not have to take on faith: the code is public, we sign every release, Apple verifies it, and your Mac re-checks that seal every single time you open the app.
 
-CI builds and notarizes release DMGs automatically from encrypted GitHub Actions secrets (no keys in the repo). See [`docs/RELEASING.md`](docs/RELEASING.md).
+Maintainers: see [`docs/RELEASING.md`](docs/RELEASING.md) for how releases are built, signed, and notarized.
 
 ## Requirements
 
