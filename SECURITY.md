@@ -27,18 +27,18 @@ Only the latest release on `main` is supported. Please upgrade rather than askin
 
 Reports about the following areas get priority:
 
-- **`Sources/MacClean/Core/Cleaner/SafetyGuard.swift`** — bypasses of the protected-paths blocklist, the 10,000-file cap, or the symlink TOCTOU re-resolution
-- **`Sources/MacClean/Core/Cleaner/CleaningEngine.swift`** — anything that causes data loss outside the intended scan results
-- **`Sources/MacCleanHelper/`** — unauthorized callers reaching the privileged XPC helper, privilege escalation, or arbitrary command execution via the helper
-- **`Sources/MacClean/Services/XPCClient.swift`** — code-signature validation bypass on either side of the XPC connection
-- **Network exfiltration** — Mac Sai makes zero network calls by design; report any network activity you observe
-- **TCC / Full Disk Access** — any path to silently gain or abuse FDA
+- **`Sources/MacClean/Core/Cleaner/SafetyGuard.swift`**: bypasses of the protected-paths blocklist, the 10,000-file cap, or the symlink TOCTOU re-resolution
+- **`Sources/MacClean/Core/Cleaner/CleaningEngine.swift`**: anything that causes data loss outside the intended scan results
+- **`Sources/MacCleanHelper/`**: unauthorized callers reaching the privileged XPC helper, privilege escalation, or arbitrary command execution via the helper
+- **`Sources/MacClean/Services/XPCClient.swift`**: code-signature validation bypass on either side of the XPC connection
+- **Network exfiltration**: Mac Sai makes zero network calls by design; report any network activity you observe
+- **TCC / Full Disk Access**: any path to silently gain or abuse FDA
 
 ## Out of scope
 
-- Mac Sai not being Apple-notarized — intentional design choice, see the README
-- Gatekeeper warnings on first launch via DMG — expected behavior
 - General macOS bugs not specific to Mac Sai
+- Findings that require an already-root or already-compromised machine
+- Social engineering or physical access to an unlocked Mac
 
 ## What we ask of you
 
@@ -50,20 +50,35 @@ Reports about the following areas get priority:
 
 - Credit in the release notes (or stay anonymous if you prefer)
 - Acknowledgment in this file for significant findings
-- Our genuine thanks — Mac Sai is safer because of you
+- Our genuine thanks. Mac Sai is safer because of you
 
-## Verifying a release matches the source
+## Verifying a release is genuine
 
-Mac Sai is ad-hoc signed (not Apple-notarized — see the README for why). To verify a release DMG corresponds to the source you reviewed, build it yourself:
+Every release is signed with our Apple **Developer ID** and **notarized by Apple**, so your own Mac can confirm it is genuinely from us and has not been modified. Verify a downloaded DMG without trusting us:
+
+```bash
+# 1. The DMG carries a stapled Apple notarization ticket
+xcrun stapler validate MacSai-1.9.0.dmg
+
+# 2. Signed by our Developer ID, chaining to Apple
+codesign -dvvv "Mac Sai.app"   # Authority: Developer ID Application: Iliya Mirzaei (H3XLS95QV4)
+
+# 3. Gatekeeper's own verdict
+spctl -a -vvv "Mac Sai.app"    # accepted, source=Notarized Developer ID
+```
+
+`source=Notarized Developer ID` is your Mac confirming with Apple that this exact binary was notarized and signed by team `H3XLS95QV4`. No one without our Developer ID certificate can reproduce that result.
+
+Notarization proves who signed a build, not that it matches this repo. To additionally confirm a release was built from the public source, build it yourself:
 
 ```bash
 git clone https://github.com/iliyami/MacSai.git
-cd MacClean
-git checkout v1.0.0   # or whichever release
+cd MacSai
+git checkout v1.9.0
 bash scripts/build-dmg.sh
 ```
 
-The DMG isn't bit-reproducible (ad-hoc signatures embed random nonces), but the source-to-binary build is straightforward and the behavior should match.
+The DMG is not bit-for-bit reproducible (signatures embed timestamps and nonces), but the source-to-binary build is straightforward and the behavior should match.
 
 ## Past advisories
 

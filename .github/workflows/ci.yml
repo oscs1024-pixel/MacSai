@@ -1,10 +1,13 @@
 name: CI
 
+# Build + test on PRs (and on demand). We deliberately do NOT run on push to
+# main: main is the product of already-tested PRs, and the Release workflow
+# re-tests before it signs and notarizes a tag. This avoids a redundant build
+# on every merge.
 on:
-  push:
-    branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   build-and-test:
