@@ -13,7 +13,12 @@ APP_NAME="Mac Sai"
 APP_BUNDLE=".build/dmg/${APP_NAME}.app"
 DEST="/Applications/${APP_NAME}.app"
 
-echo "=== Dev install: building ${APP_NAME} ($(uname -m) only, ad-hoc signed) ==="
+# Show exactly what is being installed: the current checkout (unmerged
+# work and uncommitted edits included), compiled with -c release
+# (optimization level, not the published GitHub release).
+BRANCH=$(git branch --show-current 2>/dev/null || echo "detached")
+DIRTY=$(git status --porcelain 2>/dev/null | head -1 | grep -q . && echo " + uncommitted changes" || true)
+echo "=== Dev install: building current checkout [${BRANCH}${DIRTY}] v$(tr -d '[:space:]' < VERSION) ($(uname -m), ad-hoc signed) ==="
 BUILD_ARCHS="--arch $(uname -m)" ./scripts/build-dmg.sh --app-only
 
 # Quit the running app and its menu bar helper before swapping the bundle.
