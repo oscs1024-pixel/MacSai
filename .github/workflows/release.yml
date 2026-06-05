@@ -2,7 +2,7 @@ name: Release
 
 # Releases are intentional, not automatic. A version bump on main no longer
 # ships anything on its own. Cut a release by pushing a version tag
-# (`git tag v2.0.0 && git push origin v2.0.0`) or by running this workflow
+# (`git tag v1.9.0 && git push origin v1.9.0`) or by running this workflow
 # manually from the Actions tab.
 on:
   push:
