@@ -37,9 +37,6 @@ struct MacCleanApp: App {
                 }
         }
         .windowStyle(.titleBar)
-        // Expanded toolbar style centers the window title; the default
-        // unified style left "Mac Sai" hugging the sidebar edge.
-        .windowToolbarStyle(.expanded)
         .defaultSize(width: 960, height: 620)
         // Keep the standard "Settings…" menu item + Cmd-comma, but route
         // them to the in-app page (the separate Settings window is gone).

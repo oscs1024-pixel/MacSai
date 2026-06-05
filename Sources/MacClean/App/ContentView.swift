@@ -48,9 +48,26 @@ struct ContentView: View {
                     Text("Select a module from the sidebar")
                         .foregroundStyle(.secondary)
                 }
+
+                // Centered title, drawn as plain content in the title bar
+                // region. Not a ToolbarItem: macOS 26 wraps toolbar items in
+                // a Liquid Glass capsule we don't want, and the unified
+                // toolbar pins its own title to the leading edge (system
+                // title hidden via TitleBarConfigurator; the window keeps
+                // its real title for Mission Control/VoiceOver).
+                VStack {
+                    Text(MCConstants.appName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.92))
+                        .padding(.top, 16)
+                    Spacer()
+                }
+                .ignoresSafeArea(edges: .top)
+                .allowsHitTesting(false)
             }
             .toolbarBackground(.hidden, for: .windowToolbar)
         }
+        .background(TitleBarConfigurator())
         // Title bar shows the app name only (centered); the version moved
         // to the sidebar footer next to the Settings button. The constant
         // is still checked against VERSION by CI (check-version-sync.sh).
@@ -59,6 +76,32 @@ struct ContentView: View {
         // is created on first visit and then retained.
         .onChange(of: appState.selectedSidebarItem, initial: true) { _, newValue in
             if let newValue { visited.insert(newValue) }
+        }
+    }
+
+    /// Hides the system-drawn window title once the view lands in a window.
+    /// The title string itself stays set (Mission Control, App Exposé, and
+    /// VoiceOver still read it); only the toolbar's leading-edge rendering
+    /// is suppressed, replaced by the centered principal toolbar item above.
+    private struct TitleBarConfigurator: NSViewRepresentable {
+        func makeNSView(context: Context) -> NSView { ConfiguringView() }
+
+        // Re-assert on every SwiftUI update: navigationTitle changes make
+        // AppKit re-show the system title (seen as a duplicated "Mac Sai"
+        // next to the sidebar on macOS 26).
+        func updateNSView(_ nsView: NSView, context: Context) {
+            DispatchQueue.main.async { [weak nsView] in
+                nsView?.window?.titleVisibility = .hidden
+            }
+        }
+
+        private final class ConfiguringView: NSView {
+            override func viewDidMoveToWindow() {
+                super.viewDidMoveToWindow()
+                DispatchQueue.main.async { [weak self] in
+                    self?.window?.titleVisibility = .hidden
+                }
+            }
         }
     }
 
