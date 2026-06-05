@@ -7,7 +7,7 @@
 
 ## Test Plan
 <!-- How did you verify this works? -->
-- [ ] All 56 existing tests pass (`swift run MacCleanTestRunner`)
+- [ ] All tests pass (`swift test`)
 - [ ] New tests added for new functionality
 - [ ] Tested in running app (not just compilation)
 - [ ] No new compiler warnings

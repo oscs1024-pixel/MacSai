@@ -181,7 +181,7 @@ To add a new System Junk category:
 2. Implement the `JunkCategory` protocol
 3. Add it to the `SystemJunkModule` categories array
 4. Add a corresponding `ScanCategory` enum case
-5. Add tests in `MacCleanTestRunner`
+5. Add tests in `Tests/`
 
 ### New Modules
 
