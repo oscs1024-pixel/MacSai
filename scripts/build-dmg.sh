@@ -4,6 +4,12 @@
 # Usage:
 #   ./scripts/build-dmg.sh                    # Build with ad-hoc signing only
 #   ./scripts/build-dmg.sh --notarize         # Sign with Developer ID + notarize + staple
+#   ./scripts/build-dmg.sh --app-only         # Stop after the signed .app bundle (no DMG);
+#                                             # used by scripts/dev-install.sh for fast local installs
+#
+# Environment variables for the build:
+#   BUILD_ARCHS         — swift build arch flags (default: "--arch arm64 --arch x86_64").
+#                         Override with "--arch $(uname -m)" for a fast native-only dev build.
 #
 # Environment variables for proper signing/notarization:
 #   APPLE_DEVELOPER_ID  — "Developer ID Application: Your Name (TEAMID)"
@@ -24,6 +30,10 @@ DMG_DIR=".build/dmg"
 DMG_NAME="MacSai-${VERSION}.dmg"
 
 # Detect signing capability
+APP_ONLY=false
+if [[ "${1:-}" == "--app-only" ]]; then
+    APP_ONLY=true
+fi
 NOTARIZE=false
 SIGNING_IDENTITY="-"  # ad-hoc by default
 if [[ "${1:-}" == "--notarize" ]]; then
@@ -47,8 +57,9 @@ echo "Notarize: $NOTARIZE"
 echo ""
 
 # Step 1: Build release as a universal (arm64 + x86_64) binary
-echo "[1/6] Building universal release binary (arm64 + x86_64)..."
-swift build -c release --arch arm64 --arch x86_64
+BUILD_ARCHS="${BUILD_ARCHS:---arch arm64 --arch x86_64}"
+echo "[1/6] Building release binary (${BUILD_ARCHS})..."
+swift build -c release ${BUILD_ARCHS}
 
 # Step 2: Create .app bundle
 echo "[2/6] Creating app bundle..."
@@ -201,6 +212,14 @@ fi
 
 # Verify signature
 codesign --verify --verbose=1 "${APP_BUNDLE}" 2>&1 | head -3
+
+# --app-only: stop here with the signed bundle (dev-install path).
+if [[ "$APP_ONLY" == "true" ]]; then
+    echo ""
+    echo "=== App bundle ready (skipped DMG/notarization) ==="
+    echo "App: ${APP_BUNDLE}"
+    exit 0
+fi
 
 # Step 5: Create DMG
 echo "[5/6] Creating DMG..."
