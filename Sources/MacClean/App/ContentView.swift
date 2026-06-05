@@ -68,10 +68,12 @@ struct ContentView: View {
             .toolbarBackground(.hidden, for: .windowToolbar)
         }
         .background(TitleBarConfigurator())
-        // Title bar shows the app name only (centered); the version moved
-        // to the sidebar footer next to the Settings button. The constant
-        // is still checked against VERSION by CI (check-version-sync.sh).
-        .navigationTitle(MCConstants.appName)
+        // Empty: the system-drawn title pins to the leading edge and on
+        // macOS 26 ignores titleVisibility re-asserts while SwiftUI owns a
+        // non-empty title. The visible (centered) title is drawn by the
+        // detail-pane overlay; the real NSWindow.title is set by
+        // TitleBarConfigurator so Mission Control/VoiceOver keep the name.
+        .navigationTitle("")
         // Mark the current selection visited (runs initially too) so its view
         // is created on first visit and then retained.
         .onChange(of: appState.selectedSidebarItem, initial: true) { _, newValue in
@@ -86,12 +88,20 @@ struct ContentView: View {
     private struct TitleBarConfigurator: NSViewRepresentable {
         func makeNSView(context: Context) -> NSView { ConfiguringView() }
 
-        // Re-assert on every SwiftUI update: navigationTitle changes make
-        // AppKit re-show the system title (seen as a duplicated "Mac Sai"
-        // next to the sidebar on macOS 26).
+        // Re-assert on every SwiftUI update. SwiftUI's navigationTitle is
+        // empty (it kept drawing a leading-edge title on macOS 26), so the
+        // real window title lives here: Mission Control, App Exposé, the
+        // Window menu, and VoiceOver read NSWindow.title; titleVisibility
+        // keeps it out of the toolbar where the overlay draws instead.
+        static func apply(to window: NSWindow?) {
+            guard let window else { return }
+            window.title = MCConstants.appName
+            window.titleVisibility = .hidden
+        }
+
         func updateNSView(_ nsView: NSView, context: Context) {
             DispatchQueue.main.async { [weak nsView] in
-                nsView?.window?.titleVisibility = .hidden
+                Self.apply(to: nsView?.window)
             }
         }
 
@@ -99,7 +109,7 @@ struct ContentView: View {
             override func viewDidMoveToWindow() {
                 super.viewDidMoveToWindow()
                 DispatchQueue.main.async { [weak self] in
-                    self?.window?.titleVisibility = .hidden
+                    TitleBarConfigurator.apply(to: self?.window)
                 }
             }
         }
