@@ -45,11 +45,63 @@ jobs:
       - name: Run tests
         run: swift test
 
-      - name: Build DMG
+      # --- Signing & notarization ---------------------------------------------
+      # All secrets live in GitHub repo settings; nothing sensitive is committed.
+      # The Developer ID cert is imported into an ephemeral keychain that is the
+      # default for this job and deleted afterwards. See docs/RELEASING.md.
+      - name: Import Developer ID certificate
+        env:
+          DEVID_CERT_P12_BASE64: ${{ secrets.DEVID_CERT_P12_BASE64 }}
+          DEVID_CERT_PASSWORD: ${{ secrets.DEVID_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          CERT_PATH="$RUNNER_TEMP/devid.p12"
+          KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+          echo -n "$DEVID_CERT_P12_BASE64" | base64 --decode -o "$CERT_PATH"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          # Make it the default so codesign and notarytool both find what they need.
+          security default-keychain -s "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH" \
+            $(security list-keychains -d user | sed 's/"//g')
+
+          security import "$CERT_PATH" -P "$DEVID_CERT_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null
+          rm -f "$CERT_PATH"
+          security find-identity -v -p codesigning
+
+      - name: Store notarytool credentials
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          KEY_PATH="$RUNNER_TEMP/asc_key.p8"
+          echo -n "$ASC_KEY_P8_BASE64" | base64 --decode -o "$KEY_PATH"
+          xcrun notarytool store-credentials "MacSai" \
+            --key "$KEY_PATH" \
+            --key-id "$ASC_KEY_ID" \
+            --issuer "$ASC_ISSUER_ID" \
+            --keychain "$RUNNER_TEMP/app-signing.keychain-db"
+          rm -f "$KEY_PATH"
+
+      - name: Build, sign & notarize DMG
+        env:
+          APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
+          NOTARY_PROFILE: MacSai
         run: |
           VERSION="${{ steps.version.outputs.version }}"
-          bash scripts/build-dmg.sh
-          ls -la .build/MacClean-${VERSION}.dmg
+          bash scripts/build-dmg.sh --notarize
+          ls -la .build/MacSai-${VERSION}.dmg
+          xcrun stapler validate .build/MacSai-${VERSION}.dmg
+
+      - name: Clean up signing keychain
+        if: always()
+        run: security delete-keychain "$RUNNER_TEMP/app-signing.keychain-db" || true
 
       - name: Delete existing release (same version)
         if: steps.check.outputs.exists == 'true'
@@ -63,23 +115,23 @@ jobs:
           TAG="${{ steps.version.outputs.tag }}"
 
           gh release create "$TAG" \
-            ".build/MacClean-${VERSION}.dmg" \
-            --title "Mac Clean $TAG" \
+            ".build/MacSai-${VERSION}.dmg" \
+            --title "Mac Sai $TAG" \
             --generate-notes \
             --notes-start-tag "$(git tag --sort=-creatordate | head -1 || echo '')" \
             --notes "$(cat <<EOF
-          ## Mac Clean $TAG
+          ## Mac Sai $TAG
 
           ### Install via Homebrew
 
           \`\`\`
           brew tap iliyami/macclean
-          brew install --cask mac-clean
+          brew install --cask mac-sai
           \`\`\`
 
           ### Or download directly
 
-          Download **MacClean-${VERSION}.dmg**, open it, and drag Mac Clean to your Applications folder.
+          Download **MacSai-${VERSION}.dmg**, open it, and drag Mac Sai to your Applications folder.
 
           ### Requirements
           - macOS 14 (Sonoma) or later
@@ -96,10 +148,10 @@ jobs:
         run: |
           REPO_OWNER="${{ github.repository_owner }}"
           TAP="${REPO_OWNER}/homebrew-macclean"
-          CASK_PATH="Casks/mac-clean.rb"
+          CASK_PATH="Casks/mac-sai.rb"
           VERSION="${{ steps.version.outputs.version }}"
 
-          SHA256=$(shasum -a 256 ".build/MacClean-${VERSION}.dmg" | awk '{print $1}')
+          SHA256=$(shasum -a 256 ".build/MacSai-${VERSION}.dmg" | awk '{print $1}')
           echo "DMG SHA256: $SHA256"
 
           if ! gh repo view "${TAP}" &>/dev/null; then
@@ -107,16 +159,16 @@ jobs:
             exit 1
           fi
 
-          # Local Casks/mac-clean.rb is the template; sed in the new version
+          # Local Casks/mac-sai.rb is the template; sed in the new version
           # and SHA, then push the result to the tap (not back to this repo —
           # that's the race condition the previous workflow had).
-          sed -i '' "s/version \".*\"/version \"${VERSION}\"/" Casks/mac-clean.rb
-          sed -i '' "s/sha256 \".*\"/sha256 \"${SHA256}\"/" Casks/mac-clean.rb
+          sed -i '' "s/version \".*\"/version \"${VERSION}\"/" Casks/mac-sai.rb
+          sed -i '' "s/sha256 \".*\"/sha256 \"${SHA256}\"/" Casks/mac-sai.rb
           echo "Cask preview:"
-          head -5 Casks/mac-clean.rb
+          head -5 Casks/mac-sai.rb
 
           EXISTING_SHA=$(gh api "repos/${TAP}/contents/${CASK_PATH}" --jq '.sha' 2>/dev/null || echo "")
-          NEW_CONTENT=$(base64 -i Casks/mac-clean.rb)
+          NEW_CONTENT=$(base64 -i Casks/mac-sai.rb)
 
           EXISTING_CONTENT=""
           if [ -n "$EXISTING_SHA" ]; then
@@ -130,7 +182,7 @@ jobs:
           ARGS=(
             "repos/${TAP}/contents/${CASK_PATH}"
             -X PUT
-            -f "message=Update Mac Clean cask to v${VERSION}"
+            -f "message=Update Mac Sai cask to v${VERSION}"
             -f "content=${NEW_CONTENT}"
             -f "committer[name]=github-actions[bot]"
             -f "committer[email]=github-actions[bot]@users.noreply.github.com"

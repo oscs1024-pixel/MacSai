@@ -51,7 +51,7 @@ struct ContentView: View {
             }
             .toolbarBackground(.hidden, for: .windowToolbar)
         }
-        .navigationTitle("Mac Clean")
+        .navigationTitle(MCConstants.appName)
         // Native macOS pattern: small grey second line under the title.
         // MCConstants.appVersion is checked against VERSION by CI
         // (scripts/check-version-sync.sh) — drifting between the two

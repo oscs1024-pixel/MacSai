@@ -21,7 +21,7 @@ struct SettingsView: View {
             Section {
                 Toggle(isOn: $showMenuBarWidget) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Show Mac Clean in the menu bar")
+                        Text("Show \(MCConstants.appName) in the menu bar")
                         Text("Live CPU, memory, disk, battery, and network at the top of your screen. Click to expand the popover.")
                             .font(.caption)
                             .foregroundStyle(.secondary)

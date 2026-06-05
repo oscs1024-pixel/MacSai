@@ -36,7 +36,7 @@ struct MacCleanMenuApp: App {
     @State private var pollingTask: Task<Void, Never>?
     @State private var slowTickCount = 0
 
-    /// Menu-bar label icon: the Mac Clean vacuum, in color, at 18px.
+    /// Menu-bar label icon: the Mac Sai vacuum, in color, at 18px.
     /// Rendered as a normal (non-template) image so it shows the brand
     /// colors instead of being flattened to a monochrome mask.
     private static let labelIcon: NSImage = {
@@ -164,7 +164,7 @@ struct MenuContentView: View {
                 .frame(width: 30, height: 30)
                 .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                Text("Mac Clean")
+                Text(MCConstants.appName)
                     .font(.system(size: 15, weight: .bold))
                     .foregroundStyle(MenuPalette.textPrimary)
                 Text("Live system stats")
@@ -309,7 +309,7 @@ struct MenuContentView: View {
         switch tip.id {
         case "trash_large": return "Empty Trash"
         case "caches_large": return "Free Up Space"
-        default: return "Open Mac Clean"
+        default: return "Open \(MCConstants.appName)"
         }
     }
 
@@ -371,7 +371,7 @@ struct MenuContentView: View {
             Button { TipAction.open() } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "leaf.fill").font(.system(size: 11, weight: .bold))
-                    Text("Open Mac Clean").font(.system(size: 12, weight: .bold))
+                    Text("Open \(MCConstants.appName)").font(.system(size: 12, weight: .bold))
                 }
                 .foregroundStyle(.white)
                 .frame(maxWidth: .infinity).padding(.vertical, 8)

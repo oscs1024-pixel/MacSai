@@ -1,10 +1,27 @@
 import Foundation
 
 public enum MCConstants {
-    public static let appName = "Mac Clean"
+    public static let appName = "Mac Sai"
     public static let bundleIdentifier = "com.macclean.app"
     public static let helperBundleIdentifier = "com.macclean.helper"
     public static let menuBundleIdentifier = "com.macclean.menu"
+
+    /// Apple Developer Team ID. The XPC code-signing requirements pin this so
+    /// only our real Developer-ID-signed binaries can talk to the root helper.
+    /// An `identifier`-only requirement is forgeable: any local process can
+    /// ad-hoc sign itself with our bundle id and satisfy it, then drive the
+    /// root RPCs — a local privilege escalation. Pinning the Apple anchor and
+    /// this Team ID closes that, because an attacker cannot obtain a Developer
+    /// ID certificate issued to our team.
+    public static let teamIdentifier = "H3XLS95QV4"
+
+    /// Code-signing requirement a connecting XPC peer must satisfy, used by
+    /// both the helper listener (validating callers) and the client connection
+    /// (validating the helper). Defined once so the two sides cannot drift.
+    public static func codeSigningRequirement(for identifier: String) -> String {
+        "identifier \"\(identifier)\" and anchor apple generic and "
+            + "certificate leaf[subject.OU] = \"\(teamIdentifier)\""
+    }
     /// Per-CHUNK safety net enforced by SafetyGuard.validateDeletion.
     /// CleaningEngine internally chunks large selections into batches
     /// no larger than `cleanChunkSize` (5,000), so this cap is effectively
@@ -162,5 +179,5 @@ public enum MCConstants {
     // plugin was tried (commit history) but doesn't work under multi-arch
     // `swift build --arch arm64 --arch x86_64` because xcbuild doesn't
     // execute plugins.
-    public static let appVersion = "1.8.4"
+    public static let appVersion = "2.0.0"
 }

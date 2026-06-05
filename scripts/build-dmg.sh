@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build, sign, notarize, and package Mac Clean as a DMG.
+# Build, sign, notarize, and package Mac Sai as a DMG.
 #
 # Usage:
 #   ./scripts/build-dmg.sh                    # Build with ad-hoc signing only
@@ -11,7 +11,7 @@
 
 set -euo pipefail
 
-APP_NAME="Mac Clean"
+APP_NAME="Mac Sai"
 BUNDLE_ID="com.macclean.app"
 VERSION="${VERSION:-$(cat VERSION 2>/dev/null | tr -d '[:space:]' || echo '1.0.0')}"
 # Multi-arch build emits the universal binary under .build/apple/Products/Release/
@@ -21,7 +21,7 @@ VERSION="${VERSION:-$(cat VERSION 2>/dev/null | tr -d '[:space:]' || echo '1.0.0
 # no longer supported" — actually arm64 binaries get a similar refusal.
 BUILD_DIR=".build/apple/Products/Release"
 DMG_DIR=".build/dmg"
-DMG_NAME="MacClean-${VERSION}.dmg"
+DMG_NAME="MacSai-${VERSION}.dmg"
 
 # Detect signing capability
 NOTARIZE=false
@@ -41,7 +41,7 @@ if [[ "${1:-}" == "--notarize" ]]; then
     SIGNING_IDENTITY="$APPLE_DEVELOPER_ID"
 fi
 
-echo "=== Building Mac Clean v${VERSION} ==="
+echo "=== Building Mac Sai v${VERSION} ==="
 echo "Signing identity: $SIGNING_IDENTITY"
 echo "Notarize: $NOTARIZE"
 echo ""
@@ -137,9 +137,9 @@ cat > "${MENU_APP}/Contents/Info.plist" << MENU_PLIST
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Mac Clean Menu</string>
+    <string>Mac Sai Menu</string>
     <key>CFBundleDisplayName</key>
-    <string>Mac Clean Menu</string>
+    <string>Mac Sai Menu</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
@@ -202,8 +202,24 @@ fi
 # Verify signature
 codesign --verify --verbose=1 "${APP_BUNDLE}" 2>&1 | head -3
 
-# Step 5: Create DMG
-echo "[5/6] Creating DMG..."
+# Step 4.5: Notarize and STAPLE THE APP ITSELF (before packaging), so the app a
+# user drags out of the DMG launches even offline. Stapling the DMG alone leaves
+# the contained app relying on an online Gatekeeper check on first launch.
+if [[ "$NOTARIZE" == "true" ]]; then
+    echo "[5/7] Notarizing app bundle..."
+    APP_ZIP="${DMG_DIR}/app-for-notary.zip"
+    /usr/bin/ditto -c -k --keepParent "${APP_BUNDLE}" "${APP_ZIP}"
+    xcrun notarytool submit "${APP_ZIP}" \
+        --keychain-profile "${NOTARY_PROFILE}" \
+        --wait
+    xcrun stapler staple "${APP_BUNDLE}"
+    xcrun stapler validate "${APP_BUNDLE}"
+    rm -f "${APP_ZIP}"
+    echo "  → App notarized and stapled"
+fi
+
+# Step 5: Create DMG (from the now-stapled app)
+echo "[6/7] Creating DMG..."
 hdiutil create -volname "${APP_NAME}" \
     -srcfolder "${DMG_DIR}" \
     -ov -format UDZO \
@@ -215,19 +231,17 @@ if [[ "$NOTARIZE" == "true" ]]; then
     echo "  → DMG signed with Developer ID"
 fi
 
-# Step 6: Notarize (optional)
+# Step 6: Notarize + staple the DMG as well
 if [[ "$NOTARIZE" == "true" ]]; then
-    echo "[6/6] Submitting for notarization (may take 1-5 minutes)..."
+    echo "[7/7] Notarizing DMG..."
     xcrun notarytool submit ".build/${DMG_NAME}" \
         --keychain-profile "${NOTARY_PROFILE}" \
         --wait
-
-    echo "  → Stapling notarization ticket..."
     xcrun stapler staple ".build/${DMG_NAME}"
     xcrun stapler validate ".build/${DMG_NAME}"
-    echo "  → Notarization complete"
+    echo "  → Notarization complete (app + DMG stapled)"
 else
-    echo "[6/6] Skipping notarization (no --notarize flag)"
+    echo "[7/7] Skipping notarization (no --notarize flag)"
 fi
 
 # Compute SHA256 for Homebrew Cask

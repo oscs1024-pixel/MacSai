@@ -1,6 +1,6 @@
-# Mac Clean Testing Plan
+# Mac Sai Testing Plan
 
-This document is the engineering plan for getting Mac Clean from "65 tests passing" to "real, defensible test coverage." It's both a roadmap for contributors and a public commitment to safety standards.
+This document is the engineering plan for getting Mac Sai from "65 tests passing" to "real, defensible test coverage." It's both a roadmap for contributors and a public commitment to safety standards.
 
 ## TL;DR
 

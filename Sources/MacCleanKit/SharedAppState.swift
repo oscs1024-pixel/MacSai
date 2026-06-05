@@ -1,18 +1,15 @@
 import Foundation
 
-/// Inter-process state shared between the main Mac Clean app and the
+/// Inter-process state shared between the main Mac Sai app and the
 /// menu bar widget. We use a named `UserDefaults` suite — both processes
 /// open the same suite by name, macOS backs it with a single plist at
 /// `~/Library/Preferences/com.macclean.shared.plist`, and writes from
 /// one process show up in the other on the next read.
 ///
-/// App Groups would be the canonical macOS pattern but they require
-/// signed/notarized builds with matching team identifiers in the
-/// entitlements. Mac Clean ships ad-hoc-signed today (`brew install
-/// --cask mac-clean` users get an unsigned DMG with `xattr` stripping);
-/// a named suite works without notarization and is good enough for the
-/// state we share (small, JSON-serializable, no security-sensitive
-/// data).
+/// App Groups would be the canonical macOS pattern, but a named suite is
+/// simpler and works regardless of signing. We keep it now that Mac Sai
+/// is Developer ID signed and notarized, since the shared state is small,
+/// JSON-serializable, and not security-sensitive.
 public enum SharedAppState {
     public static let suiteName = "com.macclean.shared"
 

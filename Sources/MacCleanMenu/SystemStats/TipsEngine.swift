@@ -55,7 +55,7 @@ public actor TipsEngine {
         return Tip(
             id: "trash_large",
             title: "Trash is taking \(FileSizeFormatter.format(size))",
-            body: "Empty the Trash from Mac Clean to reclaim space.",
+            body: "Empty the Trash from \(MCConstants.appName) to reclaim space.",
             estimatedSavings: size,
             symbol: "trash"
         )
@@ -67,7 +67,7 @@ public actor TipsEngine {
         return Tip(
             id: "caches_large",
             title: "User caches grew to \(FileSizeFormatter.format(size))",
-            body: "Run System Junk in Mac Clean to clear regenerable cache files.",
+            body: "Run System Junk in \(MCConstants.appName) to clear regenerable cache files.",
             estimatedSavings: size,
             symbol: "internaldrive"
         )
@@ -103,7 +103,7 @@ public actor TipsEngine {
     }
 }
 
-/// Click-to-act on a tip. `open()` brings the main Mac Clean app to the
+/// Click-to-act on a tip. `open()` brings the main Mac Sai app to the
 /// foreground; `open(moduleID:)` additionally deep-links straight to the
 /// relevant module via the `macclean://module/<id>` URL scheme.
 public enum TipAction {

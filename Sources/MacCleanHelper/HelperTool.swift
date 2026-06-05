@@ -10,7 +10,7 @@ final class HelperTool: NSObject {
     /// this check — without it, ANY local process could connect to our
     /// LaunchDaemon and call its root-privileged RPC methods.
     private static let callerRequirement =
-        "identifier \"\(MCConstants.bundleIdentifier)\""
+        MCConstants.codeSigningRequirement(for: MCConstants.bundleIdentifier)
 
     func run() {
         let listener = NSXPCListener(

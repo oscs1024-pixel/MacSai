@@ -45,7 +45,7 @@ public actor HealthMonitor {
         await fire(
             kind: "disk_low",
             title: "Storage critical",
-            body: "Only \(FileSizeFormatter.format(stats.diskFree)) free on your startup disk. Open Mac Clean to free up space."
+            body: "Only \(FileSizeFormatter.format(stats.diskFree)) free on your startup disk. Open \(MCConstants.appName) to free up space."
         )
     }
 
@@ -64,7 +64,7 @@ public actor HealthMonitor {
         await fire(
             kind: "memory_high",
             title: "Memory pressure high",
-            body: "Sustained \(Int(stats.memoryPressure * 100))% memory pressure. Mac Clean's Maintenance module can free up RAM."
+            body: "Sustained \(Int(stats.memoryPressure * 100))% memory pressure. \(MCConstants.appName)'s Maintenance module can free up RAM."
         )
     }
 

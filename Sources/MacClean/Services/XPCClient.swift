@@ -14,7 +14,7 @@ public actor XPCClient {
     /// fake responses. The kernel rejects the connection if the listener
     /// on the other end doesn't satisfy this requirement.
     private static let helperRequirement =
-        "identifier \"\(MCConstants.helperBundleIdentifier)\""
+        MCConstants.codeSigningRequirement(for: MCConstants.helperBundleIdentifier)
 
     public func connect() -> NSXPCConnection {
         if let existing = connection, !existing.isEqual(nil) {

@@ -265,7 +265,7 @@ struct ModuleContainerView: View {
             Text("Full Disk Access needed")
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundStyle(.white)
-            Text("macOS is blocking access to this location. Grant Mac Clean Full Disk Access, then scan again.")
+            Text("macOS is blocking access to this location. Grant \(MCConstants.appName) Full Disk Access, then scan again.")
                 .font(.system(size: 13))
                 .foregroundStyle(.white.opacity(0.7))
                 .multilineTextAlignment(.center)

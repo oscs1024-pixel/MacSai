@@ -116,9 +116,9 @@ final class XPCSignatureGuardTests: XCTestCase {
     /// everything. Lock the syntax in here.
     func testProductionRequirementStrings_areWellFormed() throws {
         let helperListenerRequirement =
-            "identifier \"\(MCConstants.bundleIdentifier)\""
+            MCConstants.codeSigningRequirement(for: MCConstants.bundleIdentifier)
         let clientConnectionRequirement =
-            "identifier \"\(MCConstants.helperBundleIdentifier)\""
+            MCConstants.codeSigningRequirement(for: MCConstants.helperBundleIdentifier)
 
         for req in [helperListenerRequirement, clientConnectionRequirement] {
             var parsed: SecRequirement?
@@ -129,5 +129,21 @@ final class XPCSignatureGuardTests: XCTestCase {
                 "production requirement \(req) must parse; got status \(status)")
             XCTAssertNotNil(parsed)
         }
+    }
+
+    // MARK: - The requirement must pin the Apple anchor + Team ID
+
+    /// SPEC: an `identifier`-only requirement is forgeable — any local process
+    /// can ad-hoc sign itself with our bundle id and satisfy it, then drive the
+    /// root helper's RPCs (local privilege escalation). The shipped requirement
+    /// MUST additionally pin `anchor apple generic` and our Developer ID Team
+    /// ID. This test fails loudly if anyone weakens it back to identifier-only.
+    func testProductionRequirement_pinsAppleAnchorAndTeamID() {
+        let req = MCConstants.codeSigningRequirement(for: MCConstants.bundleIdentifier)
+        XCTAssertTrue(req.contains("anchor apple generic"),
+            "requirement must pin the Apple anchor so an ad-hoc signature can't satisfy it")
+        XCTAssertTrue(
+            req.contains("certificate leaf[subject.OU] = \"\(MCConstants.teamIdentifier)\""),
+            "requirement must pin our Developer ID Team ID (\(MCConstants.teamIdentifier))")
     }
 }

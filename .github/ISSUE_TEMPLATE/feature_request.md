@@ -1,6 +1,6 @@
 ---
 name: Feature Request
-about: Suggest a new feature for Mac Clean
+about: Suggest a new feature for Mac Sai
 title: '[Feature] '
 labels: enhancement
 ---

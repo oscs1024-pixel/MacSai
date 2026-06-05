@@ -75,7 +75,7 @@ struct OnboardingView: View {
                 .font(.system(size: 60))
                 .foregroundStyle(.green)
 
-            Text("Welcome to Mac Clean")
+            Text("Welcome to \(MCConstants.appName)")
                 .font(.system(size: 28, weight: .bold))
 
             Text("The open-source way to keep your Mac clean, fast, and secure.")
@@ -95,7 +95,7 @@ struct OnboardingView: View {
             Text("Full Disk Access")
                 .font(.system(size: 24, weight: .bold))
 
-            Text("Mac Clean needs Full Disk Access to scan Mail, Safari, and other protected areas. Without it, some features will be limited.")
+            Text("\(MCConstants.appName) needs Full Disk Access to scan Mail, Safari, and other protected areas. Without it, some features will be limited.")
                 .font(.system(size: 14))
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -104,8 +104,8 @@ struct OnboardingView: View {
             VStack(alignment: .leading, spacing: 8) {
                 step("1", "Open System Settings")
                 step("2", "Go to Privacy & Security → Full Disk Access")
-                step("3", "Click the + button and add Mac Clean")
-                step("4", "Restart Mac Clean")
+                step("3", "Click the + button and add \(MCConstants.appName)")
+                step("4", "Restart \(MCConstants.appName)")
             }
             .padding()
             .background(Color.secondary.opacity(0.08))
@@ -120,7 +120,7 @@ struct OnboardingView: View {
 
     private var featuresStep: some View {
         VStack(spacing: 20) {
-            Text("What Mac Clean Can Do")
+            Text("What \(MCConstants.appName) Can Do")
                 .font(.system(size: 24, weight: .bold))
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
