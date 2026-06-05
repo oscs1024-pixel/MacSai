@@ -9,6 +9,16 @@
   A feature-complete, free alternative to CleanMyMac — built with Swift 6 and SwiftUI.
 </p>
 
+<!-- TEMPORARY rename notice: remove once the new name has settled (target: 2026-09). -->
+> [!IMPORTANT]
+> **Mac Clean is now Mac Sai.** Same app and same team, renamed for trademark reasons. Existing GitHub links redirect automatically, and this notice is temporary.
+>
+> Installed it through Homebrew under the old name? Switch with:
+> ```bash
+> brew uninstall --cask mac-clean && brew untap iliyami/macclean
+> brew tap iliyami/macsai && brew install --cask mac-sai
+> ```
+
 <p align="center">
   <a href="https://github.com/iliyami/MacSai/stargazers"><img src="https://img.shields.io/github/stars/iliyami/MacSai?style=flat-square&color=gold" alt="GitHub stars" /></a>
   <img src="https://img.shields.io/badge/platform-macOS%2014%2B-blue?style=flat-square" alt="macOS 14+" />
