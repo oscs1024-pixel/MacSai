@@ -142,18 +142,24 @@ public actor SystemStatsCollector {
     }
 
     private func getDiskInfo() -> DiskInfo {
-        let url = URL(filePath: "/")
-        guard let values = try? url.resourceValues(forKeys: [
-            .volumeTotalCapacityKey,
-            .volumeAvailableCapacityForImportantUsageKey,
-        ]) else {
+        // Use statfs, not URLResourceValues' .volumeAvailableCapacityForImportant-
+        // UsageKey. That key computes purgeable/reclaimable space and can route
+        // through the storage + Spotlight metadata machinery, which is a known
+        // source of indefinite hangs on machines with heavy APFS snapshots or
+        // Time Machine backups. Because this collector runs serially on a
+        // background actor and gates the whole menu-bar panel, one such hang
+        // pins the UI on its loading spinner forever (issue #78). statfs is a
+        // fast, purely in-kernel call with no such dependency.
+        var fs = statfs()
+        guard statfs("/", &fs) == 0 else {
             return DiskInfo(total: 0, free: 0)
         }
         // Route through MacCleanKit's DiskUsage so the free-clamping +
         // used/usedFraction math is exercised by DiskStatsTests fixtures.
-        let usage = DiskUsage(
-            total: UInt64(values.volumeTotalCapacity ?? 0),
-            free: UInt64(values.volumeAvailableCapacityForImportantUsage ?? 0)
+        let usage = DiskUsage.fromStatfs(
+            blocks: UInt64(fs.f_blocks),
+            availableBlocks: UInt64(fs.f_bavail),
+            blockSize: UInt64(fs.f_bsize)
         )
         return DiskInfo(total: usage.total, free: usage.free)
     }

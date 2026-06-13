@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import OSLog
 import MacCleanKit
 
 @main
@@ -74,23 +75,67 @@ struct MacCleanMenuApp: App {
         .menuBarExtraStyle(.window)
     }
 
+    private static let log = Logger(subsystem: MCConstants.menuBundleIdentifier, category: "SystemStats")
+
     private func startPolling() {
         pollingTask?.cancel()
         pollingTask = Task {
+            // Bind the collectors to locals so the per-step closures below stay
+            // @Sendable (capturing the actor instances, not the App value).
+            let collector = statsCollector
+            let netMon = networkMonitor
+            let devCol = devicesCollector
+            let tipsEng = tipsEngine
+            let health = healthMonitor
+
             while !Task.isCancelled {
-                let s = await statsCollector.collect()
-                let n = await networkMonitor.measure()
-                stats = s
-                networkSpeed = n
+                // Render partial data the moment it's ready: assign `stats` as
+                // soon as collect() returns rather than waiting on the network
+                // measurement, and never let one wedged step blank the panel
+                // forever (issue #78). Each step is fenced with a timeout and
+                // logs if it's slow, so the culprit is diagnosable from Console.
+                if let s = await timed("stats", budget: .seconds(2), { await collector.collect() }) {
+                    stats = s
+                    await health.evaluate(stats: s)
+                }
+                if let n = await timed("network", budget: .seconds(2), { await netMon.measure() }) {
+                    networkSpeed = n
+                }
                 protection = SharedAppState.protectionStatus
                 slowTickCount += 1
                 if slowTickCount % 10 == 1 {
-                    devices = await devicesCollector.collect()
-                    tips = await tipsEngine.generateTips()
+                    if let d = await timed("devices", budget: .seconds(3), { await devCol.collect() }) {
+                        devices = d
+                    }
+                    if let t = await timed("tips", budget: .seconds(3), { await tipsEng.generateTips() }) {
+                        tips = t
+                    }
                 }
-                await healthMonitor.evaluate(stats: s)
                 try? await Task.sleep(for: .seconds(3))
             }
+        }
+    }
+
+    /// Run one collector step under a timeout, returning nil if it overruns its
+    /// budget so the loop can keep going and the UI renders whatever else is
+    /// ready. Slow and timed-out steps are logged so a hang can be pinned to a
+    /// specific collector from a user's Console without shipping a debug build.
+    private func timed<T: Sendable>(
+        _ label: String,
+        budget: Duration,
+        _ op: @escaping @Sendable () async -> T
+    ) async -> T? {
+        let start = ContinuousClock.now
+        do {
+            let value = try await withTimeout(budget) { await op() }
+            let elapsed = ContinuousClock.now - start
+            if elapsed > .milliseconds(500) {
+                Self.log.warning("stats step '\(label, privacy: .public)' slow: \(elapsed.description, privacy: .public)")
+            }
+            return value
+        } catch {
+            Self.log.error("stats step '\(label, privacy: .public)' exceeded its budget; skipping this tick")
+            return nil
         }
     }
 

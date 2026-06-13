@@ -127,4 +127,13 @@ final class DiskStatsTests: XCTestCase {
         XCTAssertEqual(d.usedFraction, 0)
         XCTAssertEqual(d.used, 0)
     }
+
+    func testFromStatfsMultipliesBlockCountsByBlockSize() {
+        // statfs reports counts in blocks; bytes = count * f_bsize.
+        // 100 total blocks, 40 available, 4096-byte blocks.
+        let d = DiskUsage.fromStatfs(blocks: 100, availableBlocks: 40, blockSize: 4096)
+        XCTAssertEqual(d.total, 409_600)
+        XCTAssertEqual(d.free, 163_840)
+        XCTAssertEqual(d.used, 245_760)
+    }
 }
