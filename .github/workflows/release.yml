@@ -1,9 +1,14 @@
 name: Release
 
 # Releases are intentional, not automatic. A version bump on main no longer
-# ships anything on its own. Cut a release by pushing a version tag
-# (`git tag v1.9.0 && git push origin v1.9.0`) or by running this workflow
-# manually from the Actions tab.
+# ships anything on its own. Cut a release by pushing a version tag:
+#   Stable:  git tag v1.9.0        && git push origin v1.9.0
+#   Beta:    git tag v1.9.0-beta.1 && git push origin v1.9.0-beta.1
+# A tag containing a hyphen (a SemVer prerelease identifier) is published as a
+# GitHub pre-release: it is excluded from /releases/latest (so the manual in-app
+# updater never offers it) and does NOT update the Homebrew cask, so existing
+# users are unaffected. Stable tags must match the committed VERSION file.
+# You can also run this workflow manually from the Actions tab for a stable build.
 on:
   push:
     tags:
@@ -22,13 +27,35 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Read version
+      - name: Resolve version and channel
         id: version
         run: |
-          VERSION=$(cat VERSION | tr -d '[:space:]')
+          FILE_VERSION=$(cat VERSION | tr -d '[:space:]')
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            TAG="${{ github.ref_name }}"
+            VERSION="${TAG#v}"
+          else
+            # Manual workflow_dispatch (no tag): a stable build of VERSION.
+            VERSION="$FILE_VERSION"
+            TAG="v$VERSION"
+          fi
+          # A SemVer prerelease identifier (a hyphen, e.g. 1.11.5-beta.1) selects
+          # the beta channel: GitHub pre-release + no Homebrew cask update.
+          if [[ "$VERSION" == *-* ]]; then
+            PRERELEASE=true
+          else
+            PRERELEASE=false
+            # A stable tag must match the committed VERSION so the binary's
+            # appVersion and the release tag can never drift.
+            if [ "$VERSION" != "$FILE_VERSION" ]; then
+              echo "::error::Stable tag $TAG does not match VERSION file ($FILE_VERSION). Bump VERSION or use a -beta tag."
+              exit 1
+            fi
+          fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Version: $VERSION"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "Version: $VERSION (tag $TAG, prerelease=$PRERELEASE)"
 
       - name: Check if release exists
         id: check
@@ -55,6 +82,17 @@ jobs:
           key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-spm-
+
+      - name: Stamp prerelease version into the binary
+        if: steps.version.outputs.prerelease == 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Betas are built straight from a feature commit, so the committed
+          # VERSION/appVersion still read the stable number. Stamp the beta
+          # version in (CI workspace only, never committed) so the build reports
+          # itself correctly in About/Settings. BSD sed on the macOS runner.
+          sed -i '' "s/appVersion = \"[^\"]*\"/appVersion = \"$VERSION\"/" Sources/MacCleanKit/Constants.swift
+          grep -n 'appVersion = ' Sources/MacCleanKit/Constants.swift
 
       - name: Build release binary
         run: swift build -c release
@@ -111,7 +149,9 @@ jobs:
           APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
           NOTARY_PROFILE: MacSai
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
+          # Export so build-dmg.sh names the DMG / Info.plist with this version
+          # (the beta tag's version, which differs from the committed VERSION).
+          export VERSION="${{ steps.version.outputs.version }}"
           bash scripts/build-dmg.sh --notarize
           ls -la .build/MacSai-${VERSION}.dmg
           xcrun stapler validate .build/MacSai-${VERSION}.dmg
@@ -131,12 +171,34 @@ jobs:
           VERSION="${{ steps.version.outputs.version }}"
           TAG="${{ steps.version.outputs.tag }}"
 
-          gh release create "$TAG" \
-            ".build/MacSai-${VERSION}.dmg" \
-            --title "Mac Sai $TAG" \
-            --generate-notes \
-            --notes-start-tag "$(git tag --sort=-creatordate | head -1 || echo '')" \
-            --notes "$(cat <<EOF
+          if [ "${{ steps.version.outputs.prerelease }}" = "true" ]; then
+            gh release create "$TAG" \
+              ".build/MacSai-${VERSION}.dmg" \
+              --title "Mac Sai $TAG (beta)" \
+              --prerelease \
+              --notes "$(cat <<EOF
+          ## Mac Sai $TAG (beta)
+
+          This is a **pre-release for testing**, not the latest stable release. It is intentionally **not** published to Homebrew and is excluded from in-app update checks, so other users are unaffected.
+
+          ### Install
+          Download **MacSai-${VERSION}.dmg**, open it, and drag Mac Sai to your Applications folder. Quit any running copy of Mac Sai first.
+
+          ### Requirements
+          - macOS 14 (Sonoma) or later
+          - Grant Full Disk Access in System Settings for complete scan results
+
+          ### Safety
+          All deletions go to Trash by default. Protected system paths are blocklisted. Every operation is logged.
+          EOF
+          )"
+          else
+            gh release create "$TAG" \
+              ".build/MacSai-${VERSION}.dmg" \
+              --title "Mac Sai $TAG" \
+              --generate-notes \
+              --notes-start-tag "$(git tag --sort=-creatordate | head -1 || echo '')" \
+              --notes "$(cat <<EOF
           ## Mac Sai $TAG
 
           ### Install via Homebrew
@@ -158,10 +220,12 @@ jobs:
           All deletions go to Trash by default. Protected system paths are blocklisted. Every operation is logged.
           EOF
           )"
+          fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update Homebrew cask in tap repo
+        if: steps.version.outputs.prerelease != 'true'
         run: |
           REPO_OWNER="${{ github.repository_owner }}"
           TAP="${REPO_OWNER}/homebrew-macsai"
