@@ -12,6 +12,8 @@ struct ContentView: View {
     /// front-load every module's `.task` (app discovery, login items, …) at
     /// launch.
     @State private var visited: Set<SidebarItem> = []
+    @State private var updateCoordinator = UpdateCoordinator()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         @Bindable var state = appState
@@ -78,6 +80,54 @@ struct ContentView: View {
         // is created on first visit and then retained.
         .onChange(of: appState.selectedSidebarItem, initial: true) { _, newValue in
             if let newValue { visited.insert(newValue) }
+        }
+        // Automatic update check: ~3s after launch (never blocks startup) and
+        // again whenever the app becomes active. UpdateCoordinator throttles to
+        // once per day and one popup per session.
+        .task {
+            try? await Task.sleep(for: .seconds(3))
+            await updateCoordinator.runCheckIfDue()
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { await updateCoordinator.runCheckIfDue() }
+            }
+        }
+        .alert(
+            L10n.tr("发现新版本", "Update available"),
+            isPresented: Binding(
+                get: { updateCoordinator.pendingUpdate != nil },
+                set: { if !$0 { updateCoordinator.dismiss() } }
+            ),
+            presenting: updateCoordinator.pendingUpdate
+        ) { pending in
+            switch pending.action {
+            case .brewCommand:
+                Button(L10n.tr("复制升级命令", "Copy Upgrade Command")) {
+                    updateCoordinator.performPrimaryAction()
+                }
+            case .openRelease:
+                Button(L10n.tr("下载", "Download")) {
+                    updateCoordinator.performPrimaryAction()
+                }
+            }
+            Button(L10n.tr("跳过此版本", "Skip This Version")) {
+                updateCoordinator.skip(pending.version)
+            }
+            Button(L10n.tr("稍后", "Later"), role: .cancel) {
+                updateCoordinator.dismiss()
+            }
+        } message: { pending in
+            switch pending.action {
+            case .brewCommand(let cmd):
+                Text(L10n.tr(
+                    "Mac Sai \(pending.version) 已发布。使用 Homebrew 升级：\n\(cmd)",
+                    "Mac Sai \(pending.version) is available. Upgrade with Homebrew:\n\(cmd)"))
+            case .openRelease:
+                Text(L10n.tr(
+                    "Mac Sai \(pending.version) 已发布。",
+                    "Mac Sai \(pending.version) is available."))
+            }
         }
     }
 

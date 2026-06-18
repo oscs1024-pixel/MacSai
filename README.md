@@ -302,7 +302,7 @@ Coverage target: **85%+ overall**, **100% on `SafetyGuard` and `CleaningEngine`*
 
 Mac Sai takes security seriously:
 
-- **No network access** — the app never phones home, no telemetry, no analytics
+- **No telemetry or analytics.** The only network call is an optional update check (one request to the GitHub Releases API), which you can turn off in Settings
 - **No elevated privileges by default** — XPC helper only activated for maintenance tasks
 - **Code signature verification** — XPC helper validates caller identity
 - **Protected paths** — 27+ Apple system apps and all SIP-protected paths are blocklisted

@@ -19,6 +19,8 @@ struct SettingsPageView: View {
     @AppStorage("showMenuBarWidget") private var showMenuBarWidget = true
     @AppStorage("launchAtLogin") private var launchAtLogin = false
     @AppStorage("removeBackgroundColors") private var removeBackgroundColors = false
+    @AppStorage("automaticUpdateChecks") private var automaticUpdateChecks = true
+    @AppStorage("lastUpdateCheckDate") private var lastUpdateCheckTimestamp: Double = 0
     @AppStorage(AppearanceManager.defaultsKey) private var appearanceRaw = AppearanceMode.dark.rawValue
     @AppStorage(AppLanguage.defaultsKey, store: SharedAppState.defaults) private var appLanguageRaw = AppLanguage.system.rawValue
     @State private var launcher = MenuBarLauncher.shared
@@ -78,7 +80,21 @@ struct SettingsPageView: View {
             if case .available(let version, let url) = updateState {
                 updateAvailableRow(version: version, url: url)
             }
+            Toggle(L10n.tr("自动检查更新", "Automatically check for updates"),
+                   isOn: $automaticUpdateChecks)
+            if lastUpdateCheckTimestamp > 0 {
+                Text(L10n.tr(
+                    "上次检查：\(lastCheckedDescription)",
+                    "Last checked: \(lastCheckedDescription)"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
+    }
+
+    private var lastCheckedDescription: String {
+        let date = Date(timeIntervalSinceReferenceDate: lastUpdateCheckTimestamp)
+        return date.formatted(date: .abbreviated, time: .shortened)
     }
 
     @ViewBuilder
