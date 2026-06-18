@@ -27,13 +27,12 @@ cp /Users/iliya/Dev/MacClean/Casks/mac-sai.rb Casks/mac-sai.rb
 cat > README.md <<EOF
 # homebrew-macsai
 
-Homebrew tap for [Mac Sai](https://github.com/${GH_USER}/MacClean) — the open-source Mac cleaner.
+Homebrew tap for [Mac Sai](https://github.com/${GH_USER}/MacSai), the open-source Mac cleaner.
 
 ## Install
 
 \`\`\`bash
-brew tap ${GH_USER}/macclean
-brew install --cask mac-sai
+brew tap ${GH_USER}/macsai && brew install --cask mac-sai
 \`\`\`
 
 This tap is automatically updated when new versions of Mac Sai are released.
@@ -49,8 +48,7 @@ echo ""
 echo "✅ Tap created at https://github.com/${GH_USER}/${TAP_REPO}"
 echo ""
 echo "Users can now install with:"
-echo "  brew tap ${GH_USER}/macclean"
-echo "  brew install --cask mac-sai"
+echo "  brew tap ${GH_USER}/macsai && brew install --cask mac-sai"
 echo ""
 echo "Next: the release workflow will keep the cask in sync via auto-commits."
 
