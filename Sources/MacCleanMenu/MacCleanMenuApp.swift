@@ -1,6 +1,5 @@
 import SwiftUI
 import AppKit
-import OSLog
 import MacCleanKit
 
 @main
@@ -25,18 +24,11 @@ struct MacCleanMenuApp: App {
         }
     }
 
-    @State private var statsCollector = SystemStatsCollector()
-    @State private var networkMonitor = NetworkSpeedMonitor()
-    @State private var devicesCollector = ConnectedDevicesCollector()
-    @State private var tipsEngine = TipsEngine()
-    @State private var healthMonitor = HealthMonitor()
-    @State private var stats: SystemStatsCollector.SystemStats?
-    @State private var networkSpeed: NetworkSpeedMonitor.NetworkSpeed?
-    @State private var devices: ConnectedDevices?
-    @State private var protection: SharedAppState.ProtectionStatus?
-    @State private var tips: [TipsEngine.Tip] = []
-    @State private var pollingTask: Task<Void, Never>?
-    @State private var slowTickCount = 0
+    // Polling runs continuously from launch in MenuStatsModel (started by the
+    // app delegate), NOT from the popover's onAppear (see MenuStatsModel for
+    // why). The App just observes the model and renders it.
+    @NSApplicationDelegateAdaptor(MenuAppDelegate.self) private var appDelegate
+    @State private var model = MenuStatsModel.shared
     @AppStorage(AppLanguage.defaultsKey, store: SharedAppState.defaults) private var appLanguageRaw = AppLanguage.system.rawValue
 
     private var appLanguage: AppLanguage {
@@ -56,100 +48,26 @@ struct MacCleanMenuApp: App {
     var body: some Scene {
         MenuBarExtra {
             MenuContentView(
-                stats: stats,
-                networkSpeed: networkSpeed,
-                devices: devices,
-                protection: protection,
-                tips: tips,
-                onDismissTip: { tipId in
-                    SharedAppState.dismissTip(id: tipId)
-                    tips.removeAll { $0.id == tipId }
-                }
+                stats: model.stats,
+                networkSpeed: model.networkSpeed,
+                devices: model.devices,
+                protection: model.protection,
+                tips: model.tips,
+                onDismissTip: { model.dismissTip(id: $0) }
             )
             .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))
             .id(appLanguage.rawValue)
-            .onAppear { startPolling() }
-            .onDisappear { stopPolling() }
         } label: {
             HStack(spacing: 4) {
                 Image(nsImage: Self.labelIcon)
                     .renderingMode(.original)
-                if let stats {
+                if let stats = model.stats {
                     Text(FileSizeFormatter.format(stats.diskFree))
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                 }
             }
         }
         .menuBarExtraStyle(.window)
-    }
-
-    private static let log = Logger(subsystem: MCConstants.menuBundleIdentifier, category: "SystemStats")
-
-    private func startPolling() {
-        pollingTask?.cancel()
-        pollingTask = Task {
-            // Bind the collectors to locals so the per-step closures below stay
-            // @Sendable (capturing the actor instances, not the App value).
-            let collector = statsCollector
-            let netMon = networkMonitor
-            let devCol = devicesCollector
-            let tipsEng = tipsEngine
-            let health = healthMonitor
-
-            while !Task.isCancelled {
-                // Render partial data the moment it's ready: assign `stats` as
-                // soon as collect() returns rather than waiting on the network
-                // measurement, and never let one wedged step blank the panel
-                // forever (issue #78). Each step is fenced with a timeout and
-                // logs if it's slow, so the culprit is diagnosable from Console.
-                if let s = await timed("stats", budget: .seconds(2), { await collector.collect() }) {
-                    stats = s
-                    await health.evaluate(stats: s)
-                }
-                if let n = await timed("network", budget: .seconds(2), { await netMon.measure() }) {
-                    networkSpeed = n
-                }
-                protection = SharedAppState.protectionStatus
-                slowTickCount += 1
-                if slowTickCount % 10 == 1 {
-                    if let d = await timed("devices", budget: .seconds(3), { await devCol.collect() }) {
-                        devices = d
-                    }
-                    if let t = await timed("tips", budget: .seconds(3), { await tipsEng.generateTips() }) {
-                        tips = t
-                    }
-                }
-                try? await Task.sleep(for: .seconds(3))
-            }
-        }
-    }
-
-    /// Run one collector step under a timeout, returning nil if it overruns its
-    /// budget so the loop can keep going and the UI renders whatever else is
-    /// ready. Slow and timed-out steps are logged so a hang can be pinned to a
-    /// specific collector from a user's Console without shipping a debug build.
-    private func timed<T: Sendable>(
-        _ label: String,
-        budget: Duration,
-        _ op: @escaping @Sendable () async -> T
-    ) async -> T? {
-        let start = ContinuousClock.now
-        do {
-            let value = try await withTimeout(budget) { await op() }
-            let elapsed = ContinuousClock.now - start
-            if elapsed > .milliseconds(500) {
-                Self.log.warning("stats step '\(label, privacy: .public)' slow: \(elapsed.description, privacy: .public)")
-            }
-            return value
-        } catch {
-            Self.log.error("stats step '\(label, privacy: .public)' exceeded its budget; skipping this tick")
-            return nil
-        }
-    }
-
-    private func stopPolling() {
-        pollingTask?.cancel()
-        pollingTask = nil
     }
 }
 

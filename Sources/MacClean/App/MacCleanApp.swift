@@ -21,7 +21,13 @@ struct MacCleanApp: App {
     }
 
     var body: some Scene {
-        WindowGroup {
+        // A single Window (not WindowGroup) so reopening the app, or following
+        // a macclean:// deeplink from the menu bar while a window already
+        // exists, reuses the one window instead of spawning a second. Combined
+        // with LSMultipleInstancesProhibited in Info.plist (which keeps macOS
+        // from launching a second process), the user never ends up with two
+        // copies of the main window.
+        Window(MCConstants.appName, id: "main") {
             ContentView()
                 .environment(appState)
                 .environment(\.locale, Locale(identifier: appLanguage.localeIdentifier))

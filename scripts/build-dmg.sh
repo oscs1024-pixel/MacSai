@@ -105,6 +105,8 @@ cat > "${APP_BUNDLE}/Contents/Info.plist" << PLIST
     <true/>
     <key>LSUIElement</key>
     <false/>
+    <key>LSMultipleInstancesProhibited</key>
+    <true/>
     <key>CFBundleURLTypes</key>
     <array>
         <dict>
