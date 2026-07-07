@@ -20,7 +20,7 @@
 > Installed it through Homebrew under the old name? Switch with:
 > ```bash
 > brew uninstall --cask mac-clean && brew untap iliyami/macclean
-> brew tap iliyami/macsai && brew install --cask mac-sai
+> brew install --cask mac-sai
 > ```
 
 <p align="center">
@@ -43,7 +43,7 @@
 </p>
 
 ```bash
-brew tap iliyami/macsai && brew install --cask mac-sai
+brew install --cask mac-sai
 ```
 
 <p align="center">
@@ -179,11 +179,15 @@ Mac Sai is designed to **never cause data loss**:
 
 ### Homebrew (recommended — one command, no warnings)
 
+Mac Sai is in the official Homebrew cask repository, so no tap is needed:
+
 ```bash
-brew tap iliyami/macsai && brew install --cask mac-sai
+brew install --cask mac-sai
 ```
 
 Mac Sai is notarized by Apple, so it launches from Spotlight or Applications with no warnings, no right-clicks, and no commands.
+
+> Installed via the old `iliyami/macsai` tap? You can drop it now that Mac Sai is in the official cask: `brew untap iliyami/macsai` (your installed app and future `brew upgrade` are unaffected).
 
 ### One-line installer
 
@@ -369,11 +373,11 @@ Inspired by the open-source Mac utility community:
 ## Star History
 
 <p align="center">
-  <a href="https://www.star-history.com/?type=date&repos=iliyami%2FMacSai">
+  <a href="https://www.star-history.com/?repos=iliyami%2FMacSai&type=date&legend=top-left">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=iliyami/MacSai&type=date&theme=dark&legend=top-left" />
-      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=iliyami/MacSai&type=date&legend=top-left" />
-      <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=iliyami/MacSai&type=date&legend=top-left" />
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=iliyami/MacSai&type=date&theme=dark&legend=top-left&sealed_token=U-awhgge-qJwqcwRMpeYAooRYIriMPXuNrQErHZuAQsbmKYoo3D7oum-5zvqFjZlP77FXRFg56nh-1Ie9oWSBAPeS7-NUe70kSI-3XJ_Ce97vHA0OQcqEKhE0STA4FhfJ-bkteG7lb2xAVJWcLPtIJalJjJuhE2nrgA4rrcQbs6cJPk2-sbuJw76SARx" />
+      <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=iliyami/MacSai&type=date&legend=top-left&sealed_token=U-awhgge-qJwqcwRMpeYAooRYIriMPXuNrQErHZuAQsbmKYoo3D7oum-5zvqFjZlP77FXRFg56nh-1Ie9oWSBAPeS7-NUe70kSI-3XJ_Ce97vHA0OQcqEKhE0STA4FhfJ-bkteG7lb2xAVJWcLPtIJalJjJuhE2nrgA4rrcQbs6cJPk2-sbuJw76SARx" />
+      <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=iliyami/MacSai&type=date&legend=top-left&sealed_token=U-awhgge-qJwqcwRMpeYAooRYIriMPXuNrQErHZuAQsbmKYoo3D7oum-5zvqFjZlP77FXRFg56nh-1Ie9oWSBAPeS7-NUe70kSI-3XJ_Ce97vHA0OQcqEKhE0STA4FhfJ-bkteG7lb2xAVJWcLPtIJalJjJuhE2nrgA4rrcQbs6cJPk2-sbuJw76SARx" />
     </picture>
   </a>
 </p>
